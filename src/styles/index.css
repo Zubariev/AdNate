@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .design-card {
+    @apply relative overflow-hidden bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 hover:scale-[1.02];
+  }
+
+  .design-preview {
+    @apply relative overflow-hidden cursor-pointer aspect-video bg-gradient-to-br from-indigo-50 to-purple-50;
+  }
+
+  .design-actions {
+    @apply flex space-x-3;
+  }
+
+  .create-design-button {
+    @apply flex flex-col items-center justify-center h-[200px] p-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-white shadow-sm hover:border-gray-400 hover:bg-gray-50 hover:translate-y-[-2px] hover:shadow-md transition-all duration-200 min-w-[200px];
+  }
+
+  .back-button {
+    @apply flex items-center px-4 py-2 hover:bg-gray-100 rounded transition-colors duration-200;
+  }
+
+  .designs-container {
+    @apply p-6;
+  }
+
+  .designs-header {
+    @apply mb-6 flex justify-between items-center;
+  }
+
+  .designs-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6;
+  }
+
+  .new-design-btn {
+    @apply bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 hover:opacity-90 transition-opacity;
+  }
+}
+
+.gradient-bg {
+  background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+}
+
+.card-hover {
+  transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.2);
+} 

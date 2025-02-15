@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design Studio - Create Beautiful Designs</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: {
+                DEFAULT: '#4F46E5',
+                foreground: '#FFFFFF',
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      .gradient-bg {
+        background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+      }
+      .card-hover {
+        transition: all 0.3s ease;
+      }
+      .card-hover:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.2);
+      }
+    </style>
+  </head>
+  <body class="min-h-screen gradient-bg">
+    <div class="container px-4 py-16 mx-auto text-white">
+      <nav class="flex items-center justify-between mb-16">
+        <h1 class="text-2xl font-bold">Design Studio</h1>
+        <div class="space-x-4">
+          <button id="loginBtn" 
+            class="px-4 py-2 transition-colors rounded-lg bg-white/10 hover:bg-white/20">
+            Login
+          </button>
+          <button id="signupBtn"
+            class="px-4 py-2 text-indigo-600 transition-colors bg-white rounded-lg hover:bg-gray-100">
+            Sign Up
+          </button>
+        </div>
+      </nav>
+
+      <div class="grid items-center gap-12 lg:grid-cols-2">
+        <div>
+          <h2 class="mb-6 text-5xl font-bold leading-tight">Create stunning designs with our powerful editor</h2>
+          <p class="mb-8 text-xl text-indigo-100">Design beautiful graphics, presentations, and social media content in minutes. No design experience needed.</p>
+          <a href="/designs" 
+            class="inline-block px-8 py-4 text-lg font-semibold text-indigo-600 transition-colors bg-white rounded-xl hover:bg-gray-100 card-hover">
+            Start Creating Free
+          </a>
+        </div>
+        <div class="grid grid-cols-2 gap-6">
+          <div class="p-6 bg-white/10 rounded-2xl backdrop-blur-lg card-hover">
+            <h3 class="mb-2 text-xl font-semibold">Templates</h3>
+            <p class="text-indigo-100">Start with professionally designed templates</p>
+          </div>
+          <div class="p-6 bg-white/10 rounded-2xl backdrop-blur-lg card-hover">
+            <h3 class="mb-2 text-xl font-semibold">Elements</h3>
+            <p class="text-indigo-100">Access millions of photos and elements</p>
+          </div>
+          <div class="p-6 bg-white/10 rounded-2xl backdrop-blur-lg card-hover">
+            <h3 class="mb-2 text-xl font-semibold">Collaboration</h3>
+            <p class="text-indigo-100">Work together with your team in real-time</p>
+          </div>
+          <div class="p-6 bg-white/10 rounded-2xl backdrop-blur-lg card-hover">
+            <h3 class="mb-2 text-xl font-semibold">Export</h3>
+            <p class="text-indigo-100">Download in multiple formats instantly</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="fixed inset-0 flex items-center justify-center hidden p-4 bg-black/50 backdrop-blur-sm">
+      <div class="w-full max-w-md p-8 bg-white rounded-2xl">
+        <h2 class="mb-6 text-2xl font-bold text-gray-900">Welcome back</h2>
+        <form id="loginForm" class="space-y-4">
+          <input type="email" placeholder="Email" required
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+          <button type="submit" 
+            class="w-full px-4 py-3 font-semibold text-white transition-colors bg-indigo-600 rounded-lg hover:bg-indigo-700">
+            Login
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Signup Modal -->
+    <div id="signupModal" class="fixed inset-0 flex items-center justify-center hidden p-4 bg-black/50 backdrop-blur-sm">
+      <div class="w-full max-w-md p-8 bg-white rounded-2xl">
+        <h2 class="mb-6 text-2xl font-bold text-gray-900">Create your account</h2>
+        <form id="signupForm" class="space-y-4">
+          <input type="email" placeholder="Email" required
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+          <button type="submit"
+            class="w-full px-4 py-3 font-semibold text-white transition-colors bg-indigo-600 rounded-lg hover:bg-indigo-700">
+            Sign Up
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        // Modal controls
+        const loginBtn = document.getElementById('loginBtn');
+        const signupBtn = document.getElementById('signupBtn');
+        const loginModal = document.getElementById('loginModal');
+        const signupModal = document.getElementById('signupModal');
+        const loginForm = document.getElementById('loginForm');
+        const signupForm = document.getElementById('signupForm');
+        const startCreatingBtn = document.querySelector('a[href="/designs"]');
+
+        // Show/hide modals
+        loginBtn?.addEventListener('click', () => {
+          loginModal?.classList.remove('hidden');
+        });
+
+        signupBtn?.addEventListener('click', () => {
+          signupModal?.classList.remove('hidden');
+        });
+
+        // Close modals when clicking outside
+        [loginModal, signupModal].forEach(modal => {
+          modal?.addEventListener('click', (e) => {
+            if (e.target === modal) {
+              modal.classList.add('hidden');
+            }
+          });
+        });
+
+        // Form submissions
+        loginForm?.addEventListener('submit', (e) => {
+          e.preventDefault();
+          localStorage.setItem('isAuthenticated', 'true');
+          window.location.href = '/designs';
+        });
+
+        signupForm?.addEventListener('submit', (e) => {
+          e.preventDefault();
+          localStorage.setItem('isAuthenticated', 'true');
+          window.location.href = '/designs';
+        });
+
+        // Start creating button
+        startCreatingBtn?.addEventListener('click', (e) => {
+          e.preventDefault();
+          localStorage.setItem('isAuthenticated', 'true');
+          window.location.href = '/designs';
+        });
+
+        // Developer quick login (Ctrl + Alt + D)
+        document.addEventListener('keydown', (e) => {
+          if (e.ctrlKey && e.altKey && e.key === 'd') {
+            localStorage.setItem('isAuthenticated', 'true');
+            localStorage.setItem('userRole', 'admin');
+            localStorage.setItem('userEmail', 'admin@example.com');
+            window.location.href = '/designs';
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
