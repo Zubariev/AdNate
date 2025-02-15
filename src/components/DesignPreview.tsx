@@ -1,5 +1,7 @@
 import React from 'react';
-import { Element } from '../types';
+import { Database } from '../lib/database.types';
+
+type Element = Database['public']['Tables']['designs']['Row']['data']['elements'][number];
 
 interface DesignPreviewProps {
   elements: Element[];

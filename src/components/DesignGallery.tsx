@@ -1,7 +1,9 @@
 import React from 'react';
 import { Plus, Copy, Pencil, Trash } from 'lucide-react';
 import DesignPreview from './DesignPreview';
-import { Design } from '../lib/database.types';
+import { Database } from '../lib/database.types';
+
+type Design = Database['public']['Tables']['designs']['Row'];
 
 interface DesignGalleryProps {
   designs: Design[];
@@ -18,7 +20,7 @@ const DesignGallery: React.FC<DesignGalleryProps> = ({
   onDuplicateDesign,
   onCreateNew,
 }) => {
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -57,7 +59,7 @@ const DesignGallery: React.FC<DesignGalleryProps> = ({
                 onClick={() => onLoadDesign(design)}
               >
                 <DesignPreview 
-                  elements={design.data.elements || []}
+                  elements={design.data.elements}
                   width={design.data.metadata.width}
                   height={design.data.metadata.height}
                 />
