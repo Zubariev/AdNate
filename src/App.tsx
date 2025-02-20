@@ -1,9 +1,26 @@
-import React, { useEffect, useState } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
 import { supabase } from './lib/supabase';
-import DesignEditor from './components/DesignEditor';
-import DesignsList from './components/DesignsList';
-import LandingPage from './pages/LandingPage';
+import { routes } from "./routes";
+import { TooltipProvider } from "./components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AuthProvider } from "./components/auth/AuthProvider";
+import { RootLayout } from "./components/layout/RootLayout";
+
+const queryClient = new QueryClient();
+
+// Create router with auth wrapper for all routes
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: (
+      <AuthProvider>
+        <RootLayout />
+      </AuthProvider>
+    ),
+    children: routes,
+  },
+]);
 
 function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -31,9 +48,7 @@ function App() {
       setUser(session?.user || null);
     });
 
-    return () => {
-      subscription?.unsubscribe();
-    };
+    return () => subscription?.unsubscribe();
   }, []);
 
   if (isLoading) {
@@ -45,44 +60,11 @@ function App() {
   }
 
   return (
-    <Routes>
-      <Route 
-        path="/landing" 
-        element={
-          isAuthenticated ? (
-            <Navigate to="/designs" replace />
-          ) : (
-            <LandingPage />
-          )
-        } 
-      />
-      <Route 
-        path="/designs" 
-        element={
-          !isAuthenticated ? (
-            <Navigate to="/landing" replace />
-          ) : (
-            <DesignsList />
-          )
-        } 
-      />
-      <Route 
-        path="/editor/:designId" 
-        element={
-          !isAuthenticated ? (
-            <Navigate to="/landing" replace />
-          ) : (
-            <DesignEditor />
-          )
-        } 
-      />
-      <Route 
-        path="*" 
-        element={
-          <Navigate to={isAuthenticated ? "/designs" : "/landing"} replace />
-        } 
-      />
-    </Routes>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <RouterProvider router={router} />
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 }
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, BookOpen } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const LandingPage = () => {
@@ -16,6 +16,19 @@ const LandingPage = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    // Basic validation
+    if (!email || !password) {
+      setError('Email and password are required');
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      setLoading(false);
+      return;
+    }
 
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -64,67 +77,58 @@ const LandingPage = () => {
   };
 
   return (
-    <div className="min-h-screen gradient-bg">
-      <div className="container px-4 py-16 mx-auto text-white">
-        <nav className="flex items-center justify-between mb-16">
-          <h1 className="text-2xl font-bold">Design Studio</h1>
-          <div className="space-x-4">
-            <button
-              onClick={() => setShowLoginModal(true)}
-              className="px-4 py-2 transition-colors rounded-lg bg-white/10 hover:bg-white/20"
-            >
-              Login
-            </button>
-            <button
-              onClick={() => setShowSignupModal(true)}
-              className="px-4 py-2 text-indigo-600 transition-colors bg-white rounded-lg hover:bg-gray-100"
-            >
-              Sign Up
-            </button>
-          </div>
-        </nav>
-
-        <div className="grid items-center gap-12 lg:grid-cols-2">
-          <div>
-            <h2 className="mb-6 text-5xl font-bold leading-tight">
-              Create stunning designs with our powerful editor
-            </h2>
-            <p className="mb-8 text-xl text-indigo-100">
-              Design beautiful graphics, presentations, and social media content in minutes. 
-              No design experience needed.
-            </p>
-            <button
-              onClick={() => setShowSignupModal(true)}
-              className="inline-block px-8 py-4 text-lg font-semibold text-indigo-600 transition-transform bg-white rounded-xl hover:scale-105"
-            >
-              Start Creating Free
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-6">
-            <div className="p-6 backdrop-blur-lg bg-white/10 rounded-2xl card-hover">
-              <h3 className="mb-2 text-xl font-semibold">Templates</h3>
-              <p className="text-indigo-100">Start with professionally designed templates</p>
-            </div>
-            <div className="p-6 backdrop-blur-lg bg-white/10 rounded-2xl card-hover">
-              <h3 className="mb-2 text-xl font-semibold">Elements</h3>
-              <p className="text-indigo-100">Access millions of photos and elements</p>
-            </div>
-            <div className="p-6 backdrop-blur-lg bg-white/10 rounded-2xl card-hover">
-              <h3 className="mb-2 text-xl font-semibold">Collaboration</h3>
-              <p className="text-indigo-100">Work together with your team in real-time</p>
-            </div>
-            <div className="p-6 backdrop-blur-lg bg-white/10 rounded-2xl card-hover">
-              <h3 className="mb-2 text-xl font-semibold">Export</h3>
-              <p className="text-indigo-100">Download in multiple formats instantly</p>
-            </div>
-          </div>
+    <div className="text-white">
+      <nav className="flex items-center justify-between mb-16">
+        <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+          Design Studio
+        </h1>
+        <div className="space-x-4">
+          <button
+            onClick={() => navigate('/blog')}
+            className="px-4 py-2 transition-all duration-300 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-lg"
+          >
+            <BookOpen className="inline w-4 h-4 mr-2" />
+            Blog
+          </button>
+          <button
+            onClick={() => setShowLoginModal(true)}
+            className="px-4 py-2 transition-all duration-300 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-lg"
+          >
+            Login
+          </button>
+          <button
+            onClick={() => setShowSignupModal(true)}
+            className="px-4 py-2 transition-all duration-300 rounded-lg bg-gradient-to-r from-purple-400 to-pink-400 hover:opacity-90"
+          >
+            Sign Up
+          </button>
         </div>
+      </nav>
+
+      <div className="max-w-4xl mx-auto space-y-8 text-center">
+        <h2 className="text-6xl font-bold leading-tight">
+          Create Stunning Designs
+          <span className="block text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+            Without Limits
+          </span>
+        </h2>
+        <p className="text-xl text-gray-300">
+          Design beautiful graphics, presentations, and social media content in minutes. 
+          No design experience needed.
+        </p>
+        <button
+          onClick={() => setShowSignupModal(true)}
+          className="px-8 py-4 text-lg font-medium transition-all duration-300 rounded-lg bg-gradient-to-r from-purple-400 to-pink-400 hover:opacity-90"
+        >
+          Start Creating Free
+          <Sparkles className="inline w-5 h-5 ml-2" />
+        </button>
       </div>
 
       {/* Login Modal */}
       {showLoginModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md p-8 bg-white rounded-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md p-8 bg-gray-900 border rounded-2xl border-white/10">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900">Welcome back</h2>
               <button
@@ -135,7 +139,7 @@ const LandingPage = () => {
               </button>
             </div>
             {error && (
-              <div className="p-3 mb-4 text-sm text-red-600 bg-red-50 rounded-lg">
+              <div className="p-3 mb-4 text-sm text-red-600 rounded-lg bg-red-50">
                 {error}
               </div>
             )}
@@ -174,8 +178,8 @@ const LandingPage = () => {
 
       {/* Signup Modal */}
       {showSignupModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md p-8 bg-white rounded-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md p-8 bg-gray-900 border rounded-2xl border-white/10">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900">Create your account</h2>
               <button
@@ -186,7 +190,7 @@ const LandingPage = () => {
               </button>
             </div>
             {error && (
-              <div className="p-3 mb-4 text-sm text-red-600 bg-red-50 rounded-lg">
+              <div className="p-3 mb-4 text-sm text-red-600 rounded-lg bg-red-50">
                 {error}
               </div>
             )}
