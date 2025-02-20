@@ -1,30 +1,31 @@
-import React, { useState, useRef, forwardRef, ForwardedRef } from 'react';
+import React, { useState, useRef, forwardRef } from 'react';
 import { Element } from '../types';
 import DesignElement from './DesignElement';
 import { ZoomIn, ZoomOut } from 'lucide-react';
-import DesignPreview from './DesignPreview';
 import CustomSizeDialog from './CustomSizeDialog';
 
 interface CanvasProps {
   elements: Element[];
   setElements: (elements: Element[]) => void;
+  selectedElement: Element | null;
+  onSelectElement: (element: Element | null) => void;
   width?: number;
   height?: number;
   onSizeChange?: (width: number, height: number) => void;
 }
 
-const Canvas = forwardRef(({ 
+const Canvas = forwardRef<HTMLDivElement, CanvasProps>(({ 
   elements, 
   setElements,
+  selectedElement,
+  onSelectElement,
   width = 800, 
   height = 600,
   onSizeChange
-}: CanvasProps, ref: ForwardedRef<HTMLDivElement>) => {
+}, ref) => {
   const [zoom, setZoom] = useState(1);
-  const [selectedElement, setSelectedElement] = useState<Element | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isCustomSizeOpen, setIsCustomSizeOpen] = useState(false);
-  const rulerSize = 20;
 
   const handleZoom = (delta: number) => {
     setZoom(prev => Math.max(0.1, Math.min(2, prev + delta)));
@@ -52,8 +53,8 @@ const Canvas = forwardRef(({
           className="absolute border-l border-gray-300"
           style={{
             left: i,
-            height: rulerSize / 2,
-            top: rulerSize / 2,
+            height: 20 / 2,
+            top: 20 / 2,
           }}
         >
           <span className="absolute -left-3 top-4 text-[8px] text-gray-500">
@@ -70,8 +71,8 @@ const Canvas = forwardRef(({
           className="absolute border-t border-gray-300"
           style={{
             top: i,
-            width: rulerSize / 2,
-            left: rulerSize / 2,
+            width: 20 / 2,
+            left: 20 / 2,
           }}
         >
           <span className="absolute -top-3 left-4 text-[8px] text-gray-500">
@@ -85,17 +86,17 @@ const Canvas = forwardRef(({
       <>
         <div
           className="absolute top-0 left-0 bg-white border-b border-r border-gray-300"
-          style={{ width: rulerSize, height: rulerSize, zIndex: 2 }}
+          style={{ width: 20, height: 20, zIndex: 2 }}
         />
         <div
           className="absolute top-0 left-0 h-full bg-white border-r border-gray-300"
-          style={{ width: rulerSize, paddingTop: rulerSize, zIndex: 1 }}
+          style={{ width: 20, paddingTop: 20, zIndex: 1 }}
         >
           {verticalMarks}
         </div>
         <div
           className="absolute top-0 left-0 w-full bg-white border-b border-gray-300"
-          style={{ height: rulerSize, paddingLeft: rulerSize, zIndex: 1 }}
+          style={{ height: 20, paddingLeft: 20, zIndex: 1 }}
         >
           {horizontalMarks}
         </div>
@@ -104,35 +105,19 @@ const Canvas = forwardRef(({
   };
 
   return (
-    <div className="relative flex-1 bg-gray-50">
-      {renderRulers()}
-      <div className="absolute z-10 flex items-center p-2 space-x-2 bg-white rounded-lg shadow-lg right-4 top-4">
-        <button
-          onClick={() => handleZoom(-0.1)}
-          className="p-1 rounded hover:bg-gray-100"
-          title="Zoom Out"
-        >
-          <ZoomOut className="w-4 h-4" />
-        </button>
-        <span className="min-w-[40px] text-center text-sm">
-          {Math.round(zoom * 100)}%
-        </span>
+    <div className="relative flex-1 bg-gray-100">
+      <div className="absolute z-10 space-x-2 top-4 right-4">
         <button
           onClick={() => handleZoom(0.1)}
-          className="p-1 rounded hover:bg-gray-100"
-          title="Zoom In"
+          className="p-2 bg-white rounded-lg shadow hover:bg-gray-50"
         >
           <ZoomIn className="w-4 h-4" />
         </button>
-      </div>
-      
-      <div className="absolute z-10 flex items-center space-x-2 bg-white rounded-lg shadow-lg left-4 top-4">
-        <span className="px-2 text-sm">{width} × {height}</span>
         <button
-          onClick={() => setIsCustomSizeOpen(true)}
-          className="px-3 py-1 text-sm text-indigo-600 rounded-r-lg hover:bg-indigo-50"
+          onClick={() => handleZoom(-0.1)}
+          className="p-2 bg-white rounded-lg shadow hover:bg-gray-50"
         >
-          Custom
+          <ZoomOut className="w-4 h-4" />
         </button>
       </div>
       
@@ -149,22 +134,20 @@ const Canvas = forwardRef(({
             transform: `scale(${zoom})`,
             transformOrigin: 'center',
           }}
-          onClick={() => setSelectedElement(null)}
+          onClick={() => onSelectElement(null)}
         >
-          {elements
-            .sort((a, b) => a.zIndex - b.zIndex)
-            .map((element) => (
-              <DesignElement
-                key={`element-${element.id}`}
-                element={element}
-                isSelected={selectedElement?.id === element.id}
-                onSelect={() => setSelectedElement(element)}
-                onUpdate={handleUpdateElement}
-                onDelete={handleDeleteElement}
-                isDragging={isDragging}
-                setIsDragging={setIsDragging}
-              />
-            ))}
+          {elements.map((element) => (
+            <DesignElement
+              key={element.id}
+              element={element}
+              isSelected={selectedElement?.id === element.id}
+              onSelect={() => onSelectElement(element)}
+              onUpdate={handleUpdateElement}
+              onDelete={(id) => setElements(elements.filter(el => el.id !== id))}
+              isDragging={isDragging}
+              setIsDragging={setIsDragging}
+            />
+          ))}
         </div>
       </div>
       <CustomSizeDialog

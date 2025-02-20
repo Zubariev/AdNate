@@ -11,8 +11,25 @@ export interface DesignMetadata {
 }
 
 export interface DesignData {
-  metadata: DesignMetadata;
-  elements: Element[];
+  id: string;
+  user_id: string;
+  name: string;
+  data: {
+    metadata: {
+      id: string;
+      name: string;
+      width: number;
+      height: number;
+      createdAt: string;
+      updatedAt: string;
+      previewUrl?: string;
+      fullUrl?: string;
+      aspectRatio?: number;
+    };
+    elements: Array<Element>;
+  };
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Element {

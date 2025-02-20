@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Code, Save, Download, Upload, Grid, ArrowLeft } from 'lucide-react';
 import { Element, DesignData } from '../types';
 import html2canvas from 'html2canvas';
@@ -11,6 +11,7 @@ interface ToolbarProps {
   onShowGallery: () => void;
   onImportJSON: (elements: Element[]) => void;
   onTemplateSelect: (width: number, height: number) => void;
+  saving: boolean;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({ 
@@ -20,7 +21,8 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onSaveDesign,
   onShowGallery,
   onImportJSON,
-  onTemplateSelect 
+  onTemplateSelect,
+  saving
 }) => {
   const [isJSONEditorOpen, setIsJSONEditorOpen] = useState(false);
   const [jsonContent, setJsonContent] = useState('');
@@ -32,10 +34,41 @@ const Toolbar: React.FC<ToolbarProps> = ({
     { name: 'Custom', width: 800, height: 800 }
   ];
 
+  useEffect(() => {
+    if (currentDesign?.data) {
+      console.log('Current design in Toolbar:', currentDesign);
+      const designJSON = JSON.stringify({
+        metadata: {
+          id: currentDesign.id,
+          name: currentDesign.data.metadata.name,
+          width: currentDesign.data.metadata.width,
+          height: currentDesign.data.metadata.height,
+          createdAt: currentDesign.data.metadata.createdAt,
+          updatedAt: currentDesign.data.metadata.updatedAt
+        },
+        elements: elements
+      }, null, 2);
+      setJsonContent(designJSON);
+    } else {
+      const designJSON = JSON.stringify({
+        metadata: {
+          id: '',
+          name: "Untitled Design",
+          width: 800,
+          height: 730,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        elements: []
+      }, null, 2);
+      setJsonContent(designJSON);
+    }
+  }, [currentDesign, elements]);
+
   const handleExportJSON = () => {
-    const designData: DesignData = currentDesign || {
-      metadata: {
-        id: crypto.randomUUID(),
+    const designData = {
+      metadata: currentDesign?.data?.metadata || {
+        id: currentDesign?.id || '',
         name: 'Untitled Design',
         width: canvasRef.current?.offsetWidth || 800,
         height: canvasRef.current?.offsetHeight || 800,
@@ -129,10 +162,13 @@ const Toolbar: React.FC<ToolbarProps> = ({
         </button>
         <button 
           onClick={onSaveDesign}
-          className="flex items-center px-4 py-2 space-x-1 text-white bg-blue-500 rounded-md hover:bg-blue-600"
+          disabled={saving}
+          className={`flex items-center px-4 py-2 space-x-1 text-white rounded-md ${
+            saving ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'
+          }`}
         >
           <Save className="w-4 h-4" />
-          <span>Save Design</span>
+          <span>{saving ? 'Saving...' : 'Save Design'}</span>
         </button>
       </div>
 

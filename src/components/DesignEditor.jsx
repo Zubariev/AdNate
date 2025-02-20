@@ -15,37 +15,55 @@ function DesignEditor() {
   const [selectedElement, setSelectedElement] = useState(null);
   const [currentDesign, setCurrentDesign] = useState(null);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+  const [isLoading, setIsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const canvasRef = useRef(null);
+  const loadedRef = useRef(false);
 
   useEffect(() => {
     const loadDesign = async () => {
-      if (id && id !== 'new') {
-        try {
-          const { data: design, error } = await supabase
-            .from('designs')
-            .select('*')
-            .eq('id', id)
-            .single();
+      if (id === 'new' || loadedRef.current) return;
 
-          if (error) throw error;
+      try {
+        setIsLoading(true);
+        const { data: design, error } = await supabase
+          .from('designs')
+          .select('*')
+          .eq('id', id)
+          .single();
 
-          if (design) {
+        if (error) throw error;
+
+        console.log('Loaded design from Supabase:', design);
+
+        if (design?.data) {
+          const designElements = design.data.elements;
+          console.log('Design elements:', designElements);
+
+          if (Array.isArray(designElements)) {
+            loadedRef.current = true;
+            
+            // Set the entire design first
             setCurrentDesign(design);
-            setElements(design.data.elements || []);
+            
+            // Then set elements and canvas size
+            setElements(designElements);
             setCanvasSize({
               width: design.data.metadata.width || 800,
               height: design.data.metadata.height || 600
             });
           }
-        } catch (error) {
-          console.error('Error loading design:', error);
         }
+      } catch (error) {
+        console.error('Error loading design:', error);
+        navigate('/designs');
+      } finally {
+        setIsLoading(false);
       }
     };
 
     loadDesign();
-  }, [id]);
+  }, [id, navigate]);
 
   const generatePreview = async (canvas) => {
     // Create a temporary canvas for the preview
@@ -81,13 +99,19 @@ function DesignEditor() {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError) throw userError;
 
-      // Generate new ID only for new designs
-      const designId = id === 'new' ? crypto.randomUUID() : id;
-
-      // Validate designId
-      if (!designId || designId === 'undefined') {
-        console.error('Design ID is missing:', { id, currentDesign, designId });
-        throw new Error('Design ID is required');
+      // For new designs, get ID from Supabase
+      let designId;
+      if (id === 'new') {
+        const { data, error } = await supabase
+          .from('designs')
+          .insert([{ user_id: user.id }])
+          .select('id')
+          .single();
+        
+        if (error) throw error;
+        designId = data.id;
+      } else {
+        designId = id;
       }
 
       const canvas = await html2canvas(canvasRef.current, {
@@ -151,10 +175,7 @@ function DesignEditor() {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           },
-          elements: elements.map(element => ({
-            ...element,
-            id: element.id || crypto.randomUUID()
-          }))
+          elements: elements // Keep existing element IDs
         }
       };
 

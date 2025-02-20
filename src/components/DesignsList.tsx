@@ -136,7 +136,11 @@ const DesignsList: React.FC = () => {
       </div>
       <DesignGallery
         designs={designs}
-        onLoadDesign={(design: Design) => navigate(`/editor/${design.id}`)}
+        onLoadDesign={(design) => {
+          console.log('Loading design:', design);
+          console.log('Design ID:', design.id);
+          navigate(`/editor/${design.id}`);
+        }}
         onDeleteDesign={handleDeleteDesign}
         onDuplicateDesign={handleDuplicateDesign}
         onCreateNew={() => navigate('/editor/new')}

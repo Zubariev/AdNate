@@ -13,64 +13,62 @@ const CustomSizeDialog: React.FC<CustomSizeDialogProps> = ({
   onClose,
   onApply,
   currentWidth,
-  currentHeight,
+  currentHeight
 }) => {
   const [width, setWidth] = useState(currentWidth);
   const [height, setHeight] = useState(currentHeight);
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="p-6 bg-white rounded-lg shadow-xl w-96">
-        <h3 className="mb-4 text-lg font-semibold">Custom Size</h3>
-        <div className="space-y-4">
-          <div>
-            <label className="block mb-1 text-sm font-medium text-gray-700">
-              Width (px)
-            </label>
-            <input
-              type="number"
-              value={width}
-              onChange={(e) => setWidth(Number(e.target.value))}
-              className="w-full px-3 py-2 border rounded-md"
-              min="100"
-              max="3000"
-            />
-          </div>
-          <div>
-            <label className="block mb-1 text-sm font-medium text-gray-700">
-              Height (px)
-            </label>
-            <input
-              type="number"
-              value={height}
-              onChange={(e) => setHeight(Number(e.target.value))}
-              className="w-full px-3 py-2 border rounded-md"
-              min="100"
-              max="3000"
-            />
-          </div>
+    <dialog open={isOpen} className="p-4 rounded-lg shadow-lg">
+      <h2 className="mb-4 text-lg font-semibold">Custom Size</h2>
+      <form className="space-y-4">
+        <div>
+          <label htmlFor="canvas-width" className="block text-sm font-medium">
+            Width (px)
+          </label>
+          <input
+            id="canvas-width"
+            name="canvas-width"
+            type="number"
+            value={width}
+            onChange={(e) => setWidth(Number(e.target.value))}
+            className="block w-full mt-1 border-gray-300 rounded-md shadow-sm"
+          />
         </div>
-        <div className="flex justify-end mt-6 space-x-3">
+        <div>
+          <label htmlFor="canvas-height" className="block text-sm font-medium">
+            Height (px)
+          </label>
+          <input
+            id="canvas-height"
+            name="canvas-height"
+            type="number"
+            value={height}
+            onChange={(e) => setHeight(Number(e.target.value))}
+            className="block w-full mt-1 border-gray-300 rounded-md shadow-sm"
+          />
+        </div>
+        <div className="flex justify-end space-x-2">
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={() => {
               onApply(width, height);
               onClose();
             }}
-            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
           >
             Apply
           </button>
         </div>
-      </div>
-    </div>
+      </form>
+    </dialog>
   );
 };
 
