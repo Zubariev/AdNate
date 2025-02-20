@@ -1,0 +1,103 @@
+
+import { BlogPost } from "@/types/blog";
+
+export const blogPosts: BlogPost[] = [
+  {
+    id: "1",
+    title: "10 Tips for Creating Effective Banner Ads",
+    excerpt: "Learn the essential principles of designing banner ads that convert.",
+    content: "Discover the key elements that make banner ads effective...",
+    category: "tips",
+    date: "2024-03-15",
+    author: {
+      name: "Sarah Chen",
+      avatar: "/placeholder.svg",
+    },
+    tags: ["design", "conversion", "best-practices"],
+    readTime: 5,
+  },
+  {
+    id: "2",
+    title: "New AI-Powered Banner Generation Features",
+    excerpt: "Introducing our latest AI features for faster banner creation.",
+    content: "We're excited to announce our new AI-powered features...",
+    category: "updates",
+    date: "2024-03-12",
+    author: {
+      name: "Alex Turner",
+      avatar: "/placeholder.svg",
+    },
+    tags: ["ai", "features", "automation"],
+    readTime: 3,
+  },
+  {
+    id: "3",
+    title: "Digital Ad Sizes Guide 2024",
+    excerpt: "Complete guide to standard banner ad sizes for different platforms.",
+    content: "Stay up to date with the latest ad size requirements...",
+    category: "tutorial",
+    date: "2024-03-10",
+    author: {
+      name: "Maria Garcia",
+      avatar: "/placeholder.svg",
+    },
+    tags: ["specifications", "guidelines", "sizes"],
+    readTime: 7,
+  },
+  {
+    id: "4",
+    title: "Google Ads Policy Updates",
+    excerpt: "Important changes to Google Ads banner requirements.",
+    content: "Google has announced new policies affecting banner ads...",
+    category: "news",
+    date: "2024-03-08",
+    author: {
+      name: "James Wilson",
+      avatar: "/placeholder.svg",
+    },
+    tags: ["google-ads", "policy", "compliance"],
+    readTime: 4,
+  },
+  {
+    id: "5",
+    title: "Color Psychology in Banner Design",
+    excerpt: "How to use color theory to create more engaging banners.",
+    content: "Understanding color psychology can significantly impact...",
+    category: "design",
+    date: "2024-03-05",
+    author: {
+      name: "Emily White",
+      avatar: "/placeholder.svg",
+    },
+    tags: ["design", "psychology", "colors"],
+    readTime: 6,
+  },
+  {
+    id: "6",
+    title: "Mobile-First Banner Design Tips",
+    excerpt: "Best practices for creating mobile-optimized banner ads.",
+    content: "With mobile traffic continuing to grow...",
+    category: "tips",
+    date: "2024-03-03",
+    author: {
+      name: "David Kim",
+      avatar: "/placeholder.svg",
+    },
+    tags: ["mobile", "responsive", "design"],
+    readTime: 5,
+  },
+  {
+    id: "7",
+    title: "Banner Animation Performance Guide",
+    excerpt: "Optimize your animated banners for better performance.",
+    content: "Learn how to create smooth animations without...",
+    category: "tutorial",
+    date: "2024-03-01",
+    author: {
+      name: "Lisa Brown",
+      avatar: "/placeholder.svg",
+    },
+    tags: ["animation", "performance", "optimization"],
+    readTime: 8,
+  },
+];
