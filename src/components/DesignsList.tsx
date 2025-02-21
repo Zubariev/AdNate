@@ -109,7 +109,7 @@ const DesignsList: React.FC = () => {
       if (error) throw error;
       
       localStorage.removeItem('isAuthenticated');
-      navigate('/landing');
+      navigate('/');
     } catch (error) {
       console.error('Error signing out:', error);
     }

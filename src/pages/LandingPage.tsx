@@ -87,7 +87,7 @@ const LandingPage = () => {
     <div className="text-white">
       <nav className="flex items-center justify-between mb-16">
         <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
-          Design Studio
+          AdNate
         </h1>
         <div className="space-x-4">
           <button
@@ -137,7 +137,7 @@ const LandingPage = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-md p-8 bg-gray-900 border rounded-2xl border-white/10">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Welcome back</h2>
+              <h2 className="text-2xl font-bold text-white">Welcome back</h2>
               <button
                 onClick={() => setShowLoginModal(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -157,8 +157,9 @@ const LandingPage = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Email"
+                  className="w-full px-4 py-2 text-gray-900 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
                   required
-                  className="w-full px-4 py-3 mt-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
               <div>
@@ -188,7 +189,7 @@ const LandingPage = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-md p-8 bg-gray-900 border rounded-2xl border-white/10">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Create your account</h2>
+              <h2 className="text-2xl font-bold text-white">Create your account</h2>
               <button
                 onClick={() => setShowSignupModal(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -208,8 +209,9 @@ const LandingPage = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Email"
+                  className="w-full px-4 py-2 text-gray-900 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
                   required
-                  className="w-full px-4 py-3 mt-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
               <div>
