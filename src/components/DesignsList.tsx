@@ -149,4 +149,4 @@ const DesignsList: React.FC = () => {
   );
 };
 
-export default DesignsList;
+export { DesignsList };

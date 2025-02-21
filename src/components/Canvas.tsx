@@ -39,7 +39,7 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(({
 
   return (
     <div className="relative flex-1 bg-gray-100">
-      <div className="absolute z-10 space-x-2 top-4 right-4">
+      <div className="absolute top-4 right-4 z-10 space-x-2">
         <button
           onClick={() => handleZoom(0.1)}
           className="p-2 bg-white rounded-lg shadow hover:bg-gray-50"
@@ -56,7 +56,7 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(({
       
       <div 
         ref={ref}
-        className="relative overflow-auto"
+        className="overflow-auto relative"
         style={{ height: 'calc(100vh - 64px)' }}
       >
         <div

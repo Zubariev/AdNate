@@ -61,7 +61,7 @@ const Index = () => {
 
   return (
     <div className="space-y-8 text-gray-300">
-      <nav className="flex items-center justify-between">
+      <nav className="flex justify-between items-center">
         <button 
           onClick={() => navigate('/')}
           className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 hover:opacity-90"
@@ -80,13 +80,13 @@ const Index = () => {
       {/* Search and Navigation */}
       <div className="space-y-6">
         <div className="relative w-full">
-          <Search className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-4 top-1/2" />
+          <Search className="absolute left-4 top-1/2 w-4 h-4 text-gray-400 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search posts by title, content, or tags..."
-            className="w-full px-12 py-3 text-gray-300 transition-all duration-300 border rounded-lg bg-white/5 border-white/10 focus:ring-2 focus:ring-purple-400 focus:border-transparent placeholder:text-gray-400"
+            className="px-12 py-3 w-full text-gray-300 rounded-lg border transition-all duration-300 bg-white/5 border-white/10 focus:ring-2 focus:ring-purple-400 focus:border-transparent placeholder:text-gray-400"
           />
         </div>
         <div className="space-y-4">
@@ -97,11 +97,11 @@ const Index = () => {
             onSortChange={setSortBy}
           />
           {selectedTag && (
-            <div className="flex items-center gap-2 px-4 py-2 text-gray-300">
+            <div className="flex gap-2 items-center px-4 py-2 text-gray-300">
               <span>Filtered by tag:</span>
               <button
                 onClick={() => setSelectedTag(null)}
-                className="flex items-center gap-1 px-3 py-1 text-sm transition-colors rounded-full bg-white/10 hover:bg-white/20"
+                className="flex gap-1 items-center px-3 py-1 text-sm rounded-full transition-colors bg-white/10 hover:bg-white/20"
               >
                 {selectedTag}
                 <span className="ml-1">×</span>
@@ -113,9 +113,9 @@ const Index = () => {
       <div className="min-h-screen bg-background">
         <div className="container py-12 animate-fade-in">
           {/* Newsletter Subscription */}
-          <div className="p-6 mb-12 border rounded-lg bg-card border-border">
-            <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-              <div className="flex items-center gap-3">
+          <div className="p-6 mb-12 rounded-lg border bg-card border-border">
+            <div className="flex flex-col gap-4 justify-between items-center md:flex-row">
+              <div className="flex gap-3 items-center">
                 <Mail className="w-6 h-6 text-primary" />
                 <div>
                   <h3 className="font-semibold">Subscribe to Our Newsletter</h3>
@@ -124,7 +124,7 @@ const Index = () => {
                   </p>
                 </div>
               </div>
-              <form onSubmit={handleNewsletterSubmit} className="flex w-full gap-2 md:w-auto">
+              <form onSubmit={handleNewsletterSubmit} className="flex gap-2 w-full md:w-auto">
                 <Input
                   type="email"
                   placeholder="Enter your email"
@@ -140,7 +140,7 @@ const Index = () => {
 
           {/* Popular Posts Section */}
           <div className="mb-12">
-            <div className="flex items-center gap-2 mb-6">
+            <div className="flex gap-2 items-center mb-6">
               <TrendingUp className="w-5 h-5 text-primary" />
               <h2 className="text-2xl font-semibold">Popular Posts</h2>
             </div>

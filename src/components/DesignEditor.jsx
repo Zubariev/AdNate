@@ -247,7 +247,7 @@ function DesignEditor() {
       </div>
       
       <div className="flex h-[calc(100vh-64px)]">
-        <div className="w-64 overflow-y-auto bg-white border-r">
+        <div className="overflow-y-auto w-64 bg-white border-r">
           <ElementPanel onAddElement={(element) => setElements([...elements, element])} />
         </div>
         <Canvas 
@@ -260,7 +260,7 @@ function DesignEditor() {
           height={canvasSize.height}
           onSizeChange={(w, h) => setCanvasSize({ width: w, height: h })}
         />
-        <div className="w-64 space-y-4 overflow-y-auto bg-white border-l">
+        <div className="overflow-y-auto space-y-4 w-64 bg-white border-l">
           <PropertiesPanel 
             selectedElement={selectedElement}
             onUpdateElement={handleUpdateElement}

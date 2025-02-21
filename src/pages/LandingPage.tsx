@@ -100,34 +100,34 @@ const LandingPage = () => {
 
   return (
     <div className="text-white">
-      <nav className="flex items-center justify-between mb-16">
+      <nav className="flex justify-between items-center mb-16">
         <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
           AdNate
         </h1>
         <div className="space-x-4">
           <button
             onClick={() => navigate('/blog')}
-            className="px-4 py-2 transition-all duration-300 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-lg"
+            className="px-4 py-2 rounded-lg backdrop-blur-lg transition-all duration-300 bg-white/10 hover:bg-white/20"
           >
-            <BookOpen className="inline w-4 h-4 mr-2" />
+            <BookOpen className="inline mr-2 w-4 h-4" />
             Blog
           </button>
           <button
             onClick={() => setShowLoginModal(true)}
-            className="px-4 py-2 transition-all duration-300 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-lg"
+            className="px-4 py-2 rounded-lg backdrop-blur-lg transition-all duration-300 bg-white/10 hover:bg-white/20"
           >
             Login
           </button>
           <button
             onClick={() => setShowSignupModal(true)}
-            className="px-4 py-2 transition-all duration-300 rounded-lg bg-gradient-to-r from-purple-400 to-pink-400 hover:opacity-90"
+            className="px-4 py-2 bg-gradient-to-r from-purple-400 to-pink-400 rounded-lg transition-all duration-300 hover:opacity-90"
           >
             Sign Up
           </button>
         </div>
       </nav>
 
-      <div className="max-w-4xl mx-auto space-y-8 text-center">
+      <div className="mx-auto space-y-8 max-w-4xl text-center">
         <h2 className="text-6xl font-bold leading-tight">
           Create Stunning Designs
           <span className="block text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
@@ -140,18 +140,18 @@ const LandingPage = () => {
         </p>
         <button
           onClick={() => setShowSignupModal(true)}
-          className="px-8 py-4 text-lg font-medium transition-all duration-300 rounded-lg bg-gradient-to-r from-purple-400 to-pink-400 hover:opacity-90"
+          className="px-8 py-4 text-lg font-medium bg-gradient-to-r from-purple-400 to-pink-400 rounded-lg transition-all duration-300 hover:opacity-90"
         >
           Start Creating Free
-          <Sparkles className="inline w-5 h-5 ml-2" />
+          <Sparkles className="inline ml-2 w-5 h-5" />
         </button>
       </div>
 
       {/* Login Modal */}
       {showLoginModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-md p-8 bg-gray-900 border rounded-2xl border-white/10">
-            <div className="flex items-center justify-between mb-6">
+        <div className="flex fixed inset-0 z-50 justify-center items-center p-4 backdrop-blur-sm bg-black/60">
+          <div className="p-8 w-full max-w-md bg-gray-900 rounded-2xl border border-white/10">
+            <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-white">Welcome back</h2>
               <button
                 onClick={() => setShowLoginModal(false)}
@@ -161,7 +161,7 @@ const LandingPage = () => {
               </button>
             </div>
             {error && (
-              <div className="p-3 mb-4 text-sm text-red-600 rounded-lg bg-red-50">
+              <div className="p-3 mb-4 text-sm text-red-600 bg-red-50 rounded-lg">
                 {error}
               </div>
             )}
@@ -170,7 +170,7 @@ const LandingPage = () => {
                 <button
                   onClick={handleGoogleSignIn}
                   type="button"
-                  className="flex items-center justify-center w-full px-4 py-2 space-x-2 text-gray-700 transition-colors bg-white border rounded-lg hover:bg-gray-50"
+                  className="flex justify-center items-center px-4 py-2 space-x-2 w-full text-gray-700 bg-white rounded-lg border transition-colors hover:bg-gray-50"
                 >
                   <img src="/google-icon.svg" alt="Google" className="w-5 h-5" />
                   <span>Continue with Google</span>
@@ -189,7 +189,7 @@ const LandingPage = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Email"
-                    className="w-full px-4 py-2 text-gray-900 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    className="px-4 py-2 w-full text-gray-900 bg-white rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-400"
                     required
                   />
                 </div>
@@ -200,14 +200,14 @@ const LandingPage = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="w-full px-4 py-3 mt-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    className="px-4 py-3 mt-1 w-full rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full px-4 py-3 font-semibold text-white transition-colors bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                className="px-4 py-3 w-full font-semibold text-white bg-indigo-600 rounded-lg transition-colors hover:bg-indigo-700 disabled:opacity-50"
               >
                 {loading ? 'Logging in...' : 'Login'}
               </button>
@@ -218,9 +218,9 @@ const LandingPage = () => {
 
       {/* Signup Modal */}
       {showSignupModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-md p-8 bg-gray-900 border rounded-2xl border-white/10">
-            <div className="flex items-center justify-between mb-6">
+        <div className="flex fixed inset-0 z-50 justify-center items-center p-4 backdrop-blur-sm bg-black/60">
+          <div className="p-8 w-full max-w-md bg-gray-900 rounded-2xl border border-white/10">
+            <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-white">Create your account</h2>
               <button
                 onClick={() => setShowSignupModal(false)}
@@ -230,7 +230,7 @@ const LandingPage = () => {
               </button>
             </div>
             {error && (
-              <div className="p-3 mb-4 text-sm text-red-600 rounded-lg bg-red-50">
+              <div className="p-3 mb-4 text-sm text-red-600 bg-red-50 rounded-lg">
                 {error}
               </div>
             )}
@@ -239,7 +239,7 @@ const LandingPage = () => {
                 <button
                   onClick={handleGoogleSignIn}
                   type="button"
-                  className="flex items-center justify-center w-full px-4 py-2 space-x-2 text-gray-700 transition-colors bg-white border rounded-lg hover:bg-gray-50"
+                  className="flex justify-center items-center px-4 py-2 space-x-2 w-full text-gray-700 bg-white rounded-lg border transition-colors hover:bg-gray-50"
                 >
                   <img src="/google-icon.svg" alt="Google" className="w-5 h-5" />
                   <span>Continue with Google</span>
@@ -258,7 +258,7 @@ const LandingPage = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Email"
-                    className="w-full px-4 py-2 text-gray-900 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    className="px-4 py-2 w-full text-gray-900 bg-white rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-400"
                     required
                   />
                 </div>
@@ -269,14 +269,14 @@ const LandingPage = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="w-full px-4 py-3 mt-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    className="px-4 py-3 mt-1 w-full rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full px-4 py-3 font-semibold text-white transition-colors bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                className="px-4 py-3 w-full font-semibold text-white bg-indigo-600 rounded-lg transition-colors hover:bg-indigo-700 disabled:opacity-50"
               >
                 {loading ? 'Creating account...' : 'Create Account'}
               </button>

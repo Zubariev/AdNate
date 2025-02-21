@@ -39,7 +39,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
   if (!elementState) {
     return (
-      <div className="flex items-center justify-center h-full p-4 text-gray-500">
+      <div className="flex justify-center items-center p-4 h-full text-gray-500">
         Select an element to edit its properties
       </div>
     );
@@ -71,9 +71,9 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   };
 
   return (
-    <div className="h-full p-4 overflow-y-auto bg-white">
+    <div className="overflow-y-auto p-4 h-full bg-white">
       <div className="space-y-6">
-        <div className="flex items-center justify-between pb-4 border-b">
+        <div className="flex justify-between items-center pb-4 border-b">
           <h2 className="text-lg font-semibold text-gray-900">Properties</h2>
           <div className="flex space-x-2">
             <button
@@ -104,7 +104,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   type="number"
                   value={elementState.x}
                   onChange={(e) => handleNumberInput(e.target.value, 'x')}
-                  className="w-full px-2 py-1 text-sm border rounded"
+                  className="px-2 py-1 w-full text-sm rounded border"
                 />
               </div>
               <div>
@@ -113,7 +113,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   type="number"
                   value={elementState.y}
                   onChange={(e) => handleNumberInput(e.target.value, 'y')}
-                  className="w-full px-2 py-1 text-sm border rounded"
+                  className="px-2 py-1 w-full text-sm rounded border"
                 />
               </div>
             </div>
@@ -129,7 +129,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   type="number"
                   value={elementState.width}
                   onChange={(e) => handleNumberInput(e.target.value, 'width', 10)}
-                  className="w-full px-2 py-1 text-sm border rounded"
+                  className="px-2 py-1 w-full text-sm rounded border"
                 />
               </div>
               <div>
@@ -138,7 +138,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   type="number"
                   value={elementState.height}
                   onChange={(e) => handleNumberInput(e.target.value, 'height', 10)}
-                  className="w-full px-2 py-1 text-sm border rounded"
+                  className="px-2 py-1 w-full text-sm rounded border"
                 />
               </div>
             </div>
@@ -152,7 +152,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 <textarea
                   value={elementState.content}
                   onChange={(e) => handlePropertyUpdate('content', e.target.value)}
-                  className="w-full px-2 py-1 text-sm border rounded"
+                  className="px-2 py-1 w-full text-sm rounded border"
                   rows={3}
                 />
               </div>
@@ -162,7 +162,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 <select
                   value={elementState.fontFamily}
                   onChange={(e) => handlePropertyUpdate('fontFamily', e.target.value)}
-                  className="w-full px-2 py-1 text-sm border rounded"
+                  className="px-2 py-1 w-full text-sm rounded border"
                 >
                   {fonts.map((font) => (
                     <option key={font} value={font} style={{ fontFamily: font }}>
@@ -178,7 +178,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   type="number"
                   value={elementState.fontSize}
                   onChange={(e) => handleNumberInput(e.target.value, 'fontSize', 8, 200)}
-                  className="w-full px-2 py-1 text-sm border rounded"
+                  className="px-2 py-1 w-full text-sm rounded border"
                 />
               </div>
 
@@ -237,7 +237,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               type="number"
               value={elementState.rotation || 0}
               onChange={(e) => handleNumberInput(e.target.value, 'rotation', 0, 360)}
-              className="w-full px-2 py-1 text-sm border rounded"
+              className="px-2 py-1 w-full text-sm rounded border"
             />
           </div>
 
