@@ -1,168 +1,342 @@
-import React, { useState, useRef, forwardRef } from 'react';
-import { Element } from '../types';
-import DesignElement from './DesignElement';
-import { ZoomIn, ZoomOut } from 'lucide-react';
-import CustomSizeDialog from './CustomSizeDialog';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { DesignElement } from '../types';
+import { validateDesignElement } from '../lib/validations';
+import { sanitizeDesignText } from '../lib/sanitization';
+import { validateCanvasOperation } from '../lib/validations';
 
 interface CanvasProps {
-  elements: Element[];
-  setElements: (elements: Element[]) => void;
-  selectedElement: Element | null;
-  onSelectElement: (element: Element | null) => void;
-  width?: number;
-  height?: number;
-  onSizeChange?: (width: number, height: number) => void;
+  elements: DesignElement[];
+  selectedElement: string | null;
+  canvasSize: { width: number; height: number };
+  onElementSelect: (id: string | null) => void;
+  onElementUpdate: (id: string, updates: Partial<DesignElement>) => void;
+  onElementDoubleClick: (id: string) => void;
 }
 
-const Canvas = forwardRef<HTMLDivElement, CanvasProps>(({ 
-  elements, 
-  setElements,
+interface DragState {
+  isDragging: boolean;
+  elementId: string | null;
+  startPos: { x: number; y: number };
+  elementStartPos: { x: number; y: number };
+}
+
+export const Canvas: React.FC<CanvasProps> = ({
+  elements,
   selectedElement,
-  onSelectElement,
-  width = 800, 
-  height = 600,
-  onSizeChange
-}, ref) => {
-  const [zoom, setZoom] = useState(1);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isCustomSizeOpen, setIsCustomSizeOpen] = useState(false);
+  canvasSize,
+  onElementSelect,
+  onElementUpdate,
+  onElementDoubleClick,
+}) => {
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [dragState, setDragState] = useState<DragState>({
+    isDragging: false,
+    elementId: null,
+    startPos: { x: 0, y: 0 },
+    elementStartPos: { x: 0, y: 0 },
+  });
 
-  const handleZoom = (delta: number) => {
-    setZoom(prev => Math.max(0.1, Math.min(2, prev + delta)));
-  };
+  // Security: Validate canvas bounds
+  const validateBounds = useCallback((x: number, y: number, width: number, height: number) => {
+    return {
+      x: Math.max(0, Math.min(x, canvasSize.width - width)),
+      y: Math.max(0, Math.min(y, canvasSize.height - height)),
+    };
+  }, [canvasSize]);
 
-  const handleUpdateElement = (updatedElement: Element) => {
-    setElements(elements.map(el => 
-      el.id === updatedElement.id ? updatedElement : el
-    ));
-  };
+  const handleMouseDown = useCallback((e: React.MouseEvent, elementId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-  const handleDeleteElement = (id: string) => {
-    setElements(elements.filter(el => el.id !== id));
-  };
+    const element = elements.find(el => el.id === elementId);
+    if (!element) return;
 
-  const renderRulers = () => {
-    const horizontalMarks = [];
-    const verticalMarks = [];
-    const step = 50; // pixels between marks
+    onElementSelect(elementId);
 
-    for (let i = 0; i < width; i += step) {
-      horizontalMarks.push(
-        <div
-          key={`h-${i}`}
-          className="absolute border-l border-gray-300"
-          style={{
-            left: i,
-            height: 20 / 2,
-            top: 20 / 2,
-          }}
-        >
-          <span className="absolute -left-3 top-4 text-[8px] text-gray-500">
-            {i}
-          </span>
-        </div>
-      );
+    setDragState({
+      isDragging: true,
+      elementId,
+      startPos: { x: e.clientX, y: e.clientY },
+      elementStartPos: { x: element.x, y: element.y },
+    });
+  }, [elements, onElementSelect]);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!dragState.isDragging || !dragState.elementId) return;
+
+    const element = elements.find(el => el.id === dragState.elementId);
+    if (!element) return;
+
+    const deltaX = e.clientX - dragState.startPos.x;
+    const deltaY = e.clientY - dragState.startPos.y;
+
+    const newX = dragState.elementStartPos.x + deltaX;
+    const newY = dragState.elementStartPos.y + deltaY;
+
+    // Validate and constrain bounds
+    const validatedPos = validateBounds(newX, newY, element.width, element.height);
+
+    onElementUpdate(dragState.elementId, {
+      x: validatedPos.x,
+      y: validatedPos.y,
+    });
+  }, [dragState, elements, onElementUpdate, validateBounds]);
+
+  const handleMouseUp = useCallback(() => {
+    setDragState({
+      isDragging: false,
+      elementId: null,
+      startPos: { x: 0, y: 0 },
+      elementStartPos: { x: 0, y: 0 },
+    });
+  }, []);
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent, elementId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onElementDoubleClick(elementId);
+  }, [onElementDoubleClick]);
+
+  const handleCanvasClick = useCallback((e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onElementSelect(null);
+    }
+  }, [onElementSelect]);
+
+  useEffect(() => {
+    if (dragState.isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [dragState.isDragging, handleMouseMove, handleMouseUp]);
+
+  const renderElement = (element: DesignElement) => {
+    // Validate element before rendering
+    const validation = validateDesignElement(element);
+    if (!validation.success) {
+      console.warn('Invalid element detected:', validation.error);
+      return null;
     }
 
-    for (let i = 0; i < height; i += step) {
-      verticalMarks.push(
-        <div
-          key={`v-${i}`}
-          className="absolute border-t border-gray-300"
-          style={{
-            top: i,
-            width: 20 / 2,
-            left: 20 / 2,
-          }}
-        >
-          <span className="absolute -top-3 left-4 text-[8px] text-gray-500">
-            {i}
-          </span>
-        </div>
-      );
-    }
+    const isSelected = selectedElement === element.id;
+
+    const style: React.CSSProperties = {
+      position: 'absolute',
+      left: `${element.x}px`,
+      top: `${element.y}px`,
+      width: `${element.width}px`,
+      height: `${element.height}px`,
+      transform: `rotate(${element.rotation || 0}deg)`,
+      zIndex: element.zIndex || 0,
+      cursor: 'move',
+      userSelect: 'none',
+      border: isSelected ? '2px solid #007bff' : '1px solid transparent',
+      borderRadius: '2px',
+      backgroundColor: element.backgroundColor || 'transparent',
+      color: element.color || '#000000',
+      fontSize: `${element.fontSize || 16}px`,
+      fontFamily: element.fontFamily || 'Arial',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      wordBreak: 'break-word',
+    };
+
+    const handleElementMouseDown = (e: React.MouseEvent) => {
+      handleMouseDown(e, element.id);
+    };
+
+    const handleElementDoubleClick = (e: React.MouseEvent) => {
+      handleDoubleClick(e, element.id);
+    };
 
     return (
-      <>
-        <div
-          className="absolute top-0 left-0 bg-white border-b border-r border-gray-300"
-          style={{ width: 20, height: 20, zIndex: 2 }}
-        />
-        <div
-          className="absolute top-0 left-0 h-full bg-white border-r border-gray-300"
-          style={{ width: 20, paddingTop: 20, zIndex: 1 }}
-        >
-          {verticalMarks}
-        </div>
-        <div
-          className="absolute top-0 left-0 w-full bg-white border-b border-gray-300"
-          style={{ height: 20, paddingLeft: 20, zIndex: 1 }}
-        >
-          {horizontalMarks}
-        </div>
-      </>
+      <div
+        key={element.id}
+        style={style}
+        onMouseDown={handleElementMouseDown}
+        onDoubleClick={handleElementDoubleClick}
+        data-element-id={element.id}
+        data-element-type={element.type}
+      >
+        {element.type === 'text' && (
+          <div style={{ padding: '4px', textAlign: 'center' }}>
+            {sanitizeDesignText(element.content || '')}
+          </div>
+        )}
+        {element.type === 'image' && element.content && (
+          <img
+            src={element.content}
+            alt="Design element"
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              pointerEvents: 'none',
+            }}
+            onError={(e) => {
+              console.warn('Failed to load image:', element.content);
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        )}
+        {element.type === 'shape' && (
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              backgroundColor: element.backgroundColor || '#cccccc',
+              border: element.borderWidth ? `${element.borderWidth}px solid ${element.borderColor || '#000000'}` : 'none',
+            }}
+          />
+        )}
+      </div>
     );
   };
 
+  // Security: Handle updates with validation and sanitization
+  const handleElementUpdateWrapper = useCallback((id: string, updates: Partial<DesignElement>) => {
+    // Validate canvas operation before applying
+    const validation = validateCanvasOperation(updates, canvasSize);
+    if (!validation.success) {
+      console.warn('Invalid canvas operation:', validation.error);
+      return;
+    }
+
+    // Sanitize and bound check updates
+    const sanitizedUpdates: Partial<DesignElement> = {};
+
+    if (updates.x !== undefined) {
+      sanitizedUpdates.x = Math.max(0, Math.min(updates.x, canvasSize.width - (elements.find(el => el.id === id)?.width || 0)));
+    }
+    if (updates.y !== undefined) {
+      sanitizedUpdates.y = Math.max(0, Math.min(updates.y, canvasSize.height - (elements.find(el => el.id === id)?.height || 0)));
+    }
+    if (updates.width !== undefined) {
+      sanitizedUpdates.width = Math.max(1, Math.min(updates.width, canvasSize.width));
+    }
+    if (updates.height !== undefined) {
+      sanitizedUpdates.height = Math.max(1, Math.min(updates.height, canvasSize.height));
+    }
+    if (updates.backgroundColor !== undefined) {
+      sanitizedUpdates.backgroundColor = sanitizeDesignText(updates.backgroundColor);
+    }
+    if (updates.color !== undefined) {
+      sanitizedUpdates.color = sanitizeDesignText(updates.color);
+    }
+    if (updates.content !== undefined && elements.find(el => el.id === id)?.type === 'text') {
+      sanitizedUpdates.content = sanitizeDesignText(updates.content);
+    }
+    // Add other properties as needed for sanitization and validation
+
+    onElementUpdate(id, sanitizedUpdates);
+  }, [canvasSize, elements, onElementUpdate]);
+
+
   return (
-    <div className="relative flex-1 bg-gray-100">
-      <div className="absolute z-10 space-x-2 top-4 right-4">
-        <button
-          onClick={() => handleZoom(0.1)}
-          className="p-2 bg-white rounded-lg shadow hover:bg-gray-50"
-        >
-          <ZoomIn className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => handleZoom(-0.1)}
-          className="p-2 bg-white rounded-lg shadow hover:bg-gray-50"
-        >
-          <ZoomOut className="w-4 h-4" />
-        </button>
-      </div>
-      
-      <div 
-        ref={ref}
-        className="relative overflow-auto"
-        style={{ height: 'calc(100vh - 64px)' }}
-      >
+    <div
+      ref={canvasRef}
+      className="relative bg-white border border-gray-300 overflow-hidden"
+      style={{
+        width: `${canvasSize.width}px`,
+        height: `${canvasSize.height}px`,
+        minWidth: '100px',
+        minHeight: '100px',
+        maxWidth: '5000px',
+        maxHeight: '5000px',
+      }}
+      onClick={handleCanvasClick}
+    >
+      {elements.map(element => (
         <div
-          className="relative mx-auto my-8 bg-white shadow-lg"
+          key={element.id}
           style={{
-            width,
-            height,
-            transform: `scale(${zoom})`,
-            transformOrigin: 'center',
+            position: 'absolute',
+            left: `${element.x}px`,
+            top: `${element.y}px`,
+            width: `${element.width}px`,
+            height: `${element.height}px`,
+            transform: `rotate(${element.rotation || 0}deg)`,
+            zIndex: element.zIndex || 0,
+            cursor: 'move',
+            userSelect: 'none',
+            border: selectedElement === element.id ? '2px solid #007bff' : '1px solid transparent',
+            borderRadius: '2px',
+            backgroundColor: element.backgroundColor || 'transparent',
+            color: element.color || '#000000',
+            fontSize: `${element.fontSize || 16}px`,
+            fontFamily: element.fontFamily || 'Arial',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            wordBreak: 'break-word',
           }}
-          onClick={() => onSelectElement(null)}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onElementSelect(element.id);
+            setDragState({
+              isDragging: true,
+              elementId: element.id,
+              startPos: { x: e.clientX, y: e.clientY },
+              elementStartPos: { x: element.x, y: element.y },
+            });
+          }}
+          onDoubleClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onElementDoubleClick(element.id);
+          }}
+          data-element-id={element.id}
+          data-element-type={element.type}
         >
-          {elements.map((element) => (
-            <DesignElement
-              key={element.id}
-              element={element}
-              isSelected={selectedElement?.id === element.id}
-              onSelect={() => onSelectElement(element)}
-              onUpdate={handleUpdateElement}
-              onDelete={(id) => setElements(elements.filter(el => el.id !== id))}
-              isDragging={isDragging}
-              setIsDragging={setIsDragging}
+          {element.type === 'text' && (
+            <div style={{ padding: '4px', textAlign: 'center' }}>
+              {sanitizeDesignText(element.content || '')}
+            </div>
+          )}
+          {element.type === 'image' && element.content && (
+            <img
+              src={element.content}
+              alt="Design element"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                pointerEvents: 'none',
+              }}
+              onError={(e) => {
+                console.warn('Failed to load image:', element.content);
+                e.currentTarget.style.display = 'none';
+              }}
             />
-          ))}
+          )}
+          {element.type === 'shape' && (
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                backgroundColor: element.backgroundColor || '#cccccc',
+                border: element.borderWidth ? `${element.borderWidth}px solid ${element.borderColor || '#000000'}` : 'none',
+              }}
+            />
+          )}
         </div>
-      </div>
-      <CustomSizeDialog
-        isOpen={isCustomSizeOpen}
-        onClose={() => setIsCustomSizeOpen(false)}
-        onApply={(w, h) => {
-          if (onSizeChange) onSizeChange(w, h);
-        }}
-        currentWidth={width}
-        currentHeight={height}
-      />
+      ))}
+
+      {/* Canvas overlay for debugging in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="absolute top-2 left-2 text-xs text-gray-500 pointer-events-none">
+          {canvasSize.width} × {canvasSize.height}
+        </div>
+      )}
     </div>
   );
-});
-
-Canvas.displayName = 'Canvas';
-
-export default Canvas;
+};

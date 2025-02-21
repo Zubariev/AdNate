@@ -180,4 +180,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export { Index as BlogIndex };
