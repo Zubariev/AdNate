@@ -1,16 +1,23 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Sparkles, BookOpen } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (location.state?.showLogin) {
+      setShowLoginModal(true);
+    }
+  }, [location.state]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -31,6 +31,10 @@ export const routes: RouteObject[] = [
     element: <DesignEditor />,
   },
   {
+    path: "/editor/:id",
+    element: <DesignEditor />,
+  },
+  {
     path: "*",
     element: <NotFound />,
   }

@@ -96,24 +96,20 @@ function DesignEditor() {
     setSaving(true);
 
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
-
-      // For new designs, get ID from Supabase
-      let designId;
-      if (id === 'new') {
-        const { data, error } = await supabase
-          .from('designs')
-          .insert([{ user_id: user.id }])
-          .select('id')
-          .single();
-        
-        if (error) throw error;
-        designId = data.id;
-      } else {
-        designId = id;
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (!session) {
+        alert('Please log in to save your design');
+        navigate('/', { state: { showLogin: true } });
+        return;
       }
 
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Generate preview and full resolution images
       const canvas = await html2canvas(canvasRef.current, {
         backgroundColor: '#ffffff',
         scale: 2,
@@ -121,87 +117,70 @@ function DesignEditor() {
         useCORS: true
       });
 
-      // Upload preview image
       const previewBlob = await generatePreview(canvas);
-      const previewPath = `${user.id}/previews/${designId}_preview.jpg`;
-      
-      const { error: previewError } = await supabase.storage
-        .from('designs')
-        .upload(previewPath, previewBlob, {
-          contentType: 'image/jpeg',
-          cacheControl: '3600',
-          upsert: true,
-          owner: user.id
-        });
-
-      if (previewError) throw previewError;
-
-      const { data: { publicUrl: previewUrl } } = supabase.storage
-        .from('designs')
-        .getPublicUrl(previewPath);
-      
-      // Upload full resolution image
       const fullBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 1.0));
-      const fullPath = `${user.id}/designs/${designId}_full.png`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('designs')
-        .upload(fullPath, fullBlob, {
-          contentType: 'image/png',
-          upsert: true,
-          owner: user.id
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl: fullUrl } } = supabase.storage
-        .from('designs')
-        .getPublicUrl(fullPath);
 
       const designName = currentDesign?.data?.metadata?.name || 'Untitled Design';
-      const newDesign = {
-        id: designId,
+      const designData = {
         user_id: user.id,
         name: designName,
         data: {
           metadata: {
-            id: designId,
             name: designName,
             width: canvasSize.width,
             height: canvasSize.height,
-            previewUrl,
-            fullUrl,
             aspectRatio: canvasSize.height / canvasSize.width,
-            createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           },
-          elements: elements // Keep existing element IDs
+          elements
         }
       };
 
       if (id === 'new') {
-        const { error: insertError } = await supabase
+        // Insert new design
+        const { data, error: insertError } = await supabase
           .from('designs')
-          .insert([newDesign]);
+          .insert([designData])
+          .select('id')
+          .single();
 
         if (insertError) throw insertError;
-      } else {
-        const { error: updateError } = await supabase
-          .from('designs')
-          .update({
-            name: newDesign.name,
-            data: newDesign.data,
-            updated_at: new Date().toISOString()
+        
+        // Upload preview and full images with the new ID
+        const previewPath = `${user.id}/previews/${data.id}_preview.jpg`;
+        const fullPath = `${user.id}/designs/${data.id}_full.png`;
+        
+        await Promise.all([
+          supabase.storage.from('designs').upload(previewPath, previewBlob, {
+            contentType: 'image/jpeg',
+            upsert: true
+          }),
+          supabase.storage.from('designs').upload(fullPath, fullBlob, {
+            contentType: 'image/png',
+            upsert: true
           })
-          .eq('id', designId);
+        ]);
 
-        if (updateError) throw updateError;
-      }
-
-      setCurrentDesign(newDesign);
-
-      if (id === 'new') {
-        navigate(`/editor/${designId}`, { replace: true });
+        navigate(`/editor/${data.id}`, { replace: true });
+      } else {
+        // Update existing design
+        const previewPath = `${user.id}/previews/${id}_preview.jpg`;
+        const fullPath = `${user.id}/designs/${id}_full.png`;
+        
+        await Promise.all([
+          supabase.storage.from('designs').upload(previewPath, previewBlob, {
+            contentType: 'image/jpeg',
+            upsert: true
+          }),
+          supabase.storage.from('designs').upload(fullPath, fullBlob, {
+            contentType: 'image/png',
+            upsert: true
+          }),
+          supabase
+            .from('designs')
+            .update(designData)
+            .eq('id', id)
+        ]);
       }
 
       alert('Design saved successfully!');
