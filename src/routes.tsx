@@ -19,7 +19,7 @@ export const routes: RouteObject[] = [
     element: <BlogIndex />,
   },
   {
-    path: "/blog/:id",
+    path: "/blog/post/:id",
     element: <PostDetail />,
   },
   {
