@@ -83,6 +83,21 @@ const LandingPage = () => {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/designs`
+        }
+      });
+
+      if (error) throw error;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to sign in with Google');
+    }
+  };
+
   return (
     <div className="text-white">
       <nav className="flex items-center justify-between mb-16">
@@ -151,26 +166,43 @@ const LandingPage = () => {
               </div>
             )}
             <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email"
-                  className="w-full px-4 py-2 text-gray-900 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 mt-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                />
+              <div className="space-y-4">
+                <button
+                  onClick={handleGoogleSignIn}
+                  type="button"
+                  className="flex items-center justify-center w-full px-4 py-2 space-x-2 text-gray-700 transition-colors bg-white border rounded-lg hover:bg-gray-50"
+                >
+                  <img src="/google-icon.svg" alt="Google" className="w-5 h-5" />
+                  <span>Continue with Google</span>
+                </button>
+                
+                <div className="flex items-center">
+                  <div className="flex-1 border-t border-gray-300"></div>
+                  <span className="px-4 text-sm text-gray-500">or</span>
+                  <div className="flex-1 border-t border-gray-300"></div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Email"
+                    className="w-full px-4 py-2 text-gray-900 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Password</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 mt-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
               </div>
               <button
                 type="submit"
@@ -203,26 +235,43 @@ const LandingPage = () => {
               </div>
             )}
             <form onSubmit={handleSignUp} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email"
-                  className="w-full px-4 py-2 text-gray-900 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 mt-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                />
+              <div className="space-y-4">
+                <button
+                  onClick={handleGoogleSignIn}
+                  type="button"
+                  className="flex items-center justify-center w-full px-4 py-2 space-x-2 text-gray-700 transition-colors bg-white border rounded-lg hover:bg-gray-50"
+                >
+                  <img src="/google-icon.svg" alt="Google" className="w-5 h-5" />
+                  <span>Continue with Google</span>
+                </button>
+                
+                <div className="flex items-center">
+                  <div className="flex-1 border-t border-gray-300"></div>
+                  <span className="px-4 text-sm text-gray-500">or</span>
+                  <div className="flex-1 border-t border-gray-300"></div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Email"
+                    className="w-full px-4 py-2 text-gray-900 bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Password</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 mt-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
               </div>
               <button
                 type="submit"
