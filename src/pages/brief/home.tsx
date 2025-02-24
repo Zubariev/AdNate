@@ -160,400 +160,22 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen p-6 bg-background">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div className="min-h-screen text-white">
         <div className="flex items-center justify-between">
           <div className="space-y-2">
-            <h1 className="text-4xl font-bold text-primary">Creative Brief Generator</h1>
-            <p className="text-muted-foreground">
-              Generate AI-powered banner concepts and Midjourney prompts from your marketing requirements
+            <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+              Creative Brief
+            </h1>
+            <p className="text-gray-300">
+              Generate concepts from your marketing requirements
             </p>
           </div>
-          <div className="space-x-4">
-            <Input
-              placeholder="Search briefs..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-64"
-            />
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="product">Product Launch</SelectItem>
-                <SelectItem value="brand">Brand Awareness</SelectItem>
-                <SelectItem value="seasonal">Seasonal</SelectItem>
-                <SelectItem value="promotion">Promotion</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="grid gap-8 md:grid-cols-2">
           <Card>
-            <CardHeader>
-              <CardTitle>Brief Details</CardTitle>
-              <CardDescription>
-                Fill in the fields you know - AI will help complete the rest
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="projectName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Project Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter project name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="targetAudience"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Target Audience</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Describe your target audience's demographics, psychographics, and behaviors"
-                            {...field}
-                          />
-                        </FormControl>
-                        <KeywordSuggestions
-                          keywords={briefSuggestions.targetAudience}
-                          onSelect={(keyword) => {
-                            field.onChange(field.value ? `${field.value}, ${keyword}` : keyword);
-                          }}
-                        />
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="keyMessage"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Key Message</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="What's the main message and supporting points?"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="brandGuidelines"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Brand Guidelines</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Brand colors, tone, style guidelines, and visual requirements"
-                            {...field}
-                          />
-                        </FormControl>
-                        <div className="space-y-2">
-                          <div>
-                            <p className="mb-1 text-xs text-muted-foreground">Colors:</p>
-                            <KeywordSuggestions
-                              keywords={briefSuggestions.brandGuidelines.colors}
-                              onSelect={(keyword) => {
-                                field.onChange(field.value ? `${field.value}, ${keyword}` : keyword);
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <p className="mb-1 text-xs text-muted-foreground">Typography:</p>
-                            <KeywordSuggestions
-                              keywords={briefSuggestions.brandGuidelines.typography}
-                              onSelect={(keyword) => {
-                                field.onChange(field.value ? `${field.value}, ${keyword}` : keyword);
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <p className="mb-1 text-xs text-muted-foreground">Style:</p>
-                            <KeywordSuggestions
-                              keywords={briefSuggestions.brandGuidelines.style}
-                              onSelect={(keyword) => {
-                                field.onChange(field.value ? `${field.value}, ${keyword}` : keyword);
-                              }}
-                            />
-                          </div>
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="bannerSizes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Banner Sizes</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g. 728x90, 300x250, 160x600" {...field} />
-                        </FormControl>
-                        <KeywordSuggestions
-                          keywords={briefSuggestions.bannerSizes}
-                          onSelect={(keyword) => {
-                            const size = keyword.split(" ")[0]; // Extract just the dimensions
-                            field.onChange(field.value ? `${field.value}, ${size}` : size);
-                          }}
-                        />
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="brandContext"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Brand Context</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Brand's background, values, and market position"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="objective"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Campaign Objective</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Specific goals and desired outcomes of the campaign"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="consumerJourney"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Consumer Journey Stage</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Where does this fit in the customer journey?"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="emotionalConnection"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Emotional Connection</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Desired emotional response and psychological impact"
-                            {...field}
-                          />
-                        </FormControl>
-                        <KeywordSuggestions
-                          keywords={briefSuggestions.emotionalConnection}
-                          onSelect={(keyword) => {
-                            field.onChange(field.value ? `${field.value}, ${keyword}` : keyword);
-                          }}
-                        />
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="visualStyle"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Visual Style</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Specific visual direction, references, and style preferences"
-                            {...field}
-                          />
-                        </FormControl>
-                        <KeywordSuggestions
-                          keywords={briefSuggestions.visualStyle}
-                          onSelect={(keyword) => {
-                            field.onChange(field.value ? `${field.value}, ${keyword}` : keyword);
-                          }}
-                        />
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="performanceMetrics"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Performance Metrics</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="How will success be measured?"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <Button type="submit" disabled={mutation.isPending}>
-                    {mutation.isPending && (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    )}
-                    Generate Concepts
-                  </Button>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
-
-          <div className="space-y-6">
-            <AssetLibrary />
-            {generatedConcepts.map((concept, index) => (
-              <React.Fragment key={index}>
-                <PreviewMode 
-                  concept={concept}
-                  bannerSizes={form.getValues("bannerSizes").split(",").map(s => s.trim())}
-                />
-                <Card>
-                <CardHeader>
-                  <CardTitle>{concept.title}</CardTitle>
-                  <CardDescription>{concept.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Accordion type="single" collapsible>
-                    <AccordionItem value="elements">
-                      <AccordionTrigger>Visual Elements</AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-4">
-                          <div>
-                            <h4 className="font-medium">Background</h4>
-                            <p className="text-sm text-muted-foreground">{concept.elements.background}</p>
-                          </div>
-                          <div>
-                            <h4 className="font-medium">Graphics</h4>
-                            <p className="text-sm text-muted-foreground">{concept.elements.graphics}</p>
-                          </div>
-                          <div>
-                            <h4 className="font-medium">Text</h4>
-                            <p className="text-sm text-muted-foreground">{concept.elements.text}</p>
-                          </div>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                    <AccordionItem value="prompts">
-                      <AccordionTrigger>Midjourney Prompts</AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-4">
-                          {Object.entries(concept.midjourneyPrompts).map(([key, prompt]) => (
-                            <div key={key} className="space-y-2">
-                              <div className="flex items-center justify-between">
-                                <h4 className="font-medium capitalize">{key}</h4>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => copyToClipboard(prompt)}
-                                >
-                                  <Clipboard className="w-4 h-4" />
-                                </Button>
-                              </div>
-                              <p className="text-sm text-muted-foreground">{prompt}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-4"
-                    onClick={() => selectedBriefId && shareMutation.mutate(selectedBriefId)}
-                    disabled={shareMutation.isPending || !selectedBriefId}
-                  >
-                    {shareMutation.isPending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Share className="w-4 h-4 mr-2" />
-                    )}
-                    Share Brief
-                  </Button>
-                </CardContent>
-              </Card>
-              </React.Fragment>
-            ))}
-          </div>
-          
-          <div className="mt-8">
-            <h2 className="mb-4 text-2xl font-bold">Templates</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Save as Template</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    onClick={() => {
-                      const templates = JSON.parse(localStorage.getItem('briefTemplates') || '[]');
-                      templates.push(form.getValues());
-                      localStorage.setItem('briefTemplates', JSON.stringify(templates));
-                      toast({
-                        title: "Template Saved",
-                        description: "Your brief has been saved as a template"
-                      });
-                    }}
-                  >
-                    Save Current Brief
-                  </Button>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Industry Presets</CardTitle>
-                </CardHeader>
-                <CardContent>
+              <CardHeader>
+                <CardTitle>Brief Presets</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-12">
                   <Select onValueChange={(industry) => {
                     const template = industryTemplates[industry as keyof typeof industryTemplates];
                     form.reset(template);
@@ -569,12 +191,384 @@ export default function Home() {
                       ))}
                     </SelectContent>
                   </Select>
-                </CardContent>
-              </Card>
-            </div>
+
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      <SelectItem value="product">Product Launch</SelectItem>
+                      <SelectItem value="brand">Brand Awareness</SelectItem>
+                      <SelectItem value="seasonal">Seasonal</SelectItem>
+                      <SelectItem value="promotion">Promotion</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+        </div>
+
+        <Card className="text-white border-0 bg-white/10 backdrop-blur-lg">
+          <CardHeader>
+            <CardTitle className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+              Create New Brief
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="projectName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Project Name</FormLabel>
+                      <FormControl className="text-white border-0 bg-white/10 placeholder:text-gray-400 focus-visible:ring-purple-400">
+                        <Input placeholder="Enter project name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="targetAudience"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Target Audience</FormLabel>
+                      <FormControl className="text-white border-0 bg-white/10 placeholder:text-gray-400 focus-visible:ring-purple-400">
+                        <Textarea
+                          placeholder="Describe your target audience's demographics, psychographics, and behaviors"
+                          {...field}
+                        />
+                      </FormControl>
+                      <KeywordSuggestions
+                        keywords={briefSuggestions.targetAudience}
+                        onSelect={(keyword) => {
+                          field.onChange(field.value ? `${field.value}, ${keyword}` : keyword);
+                        }}
+                      />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="keyMessage"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Key Message</FormLabel>
+                      <FormControl className="text-white border-0 bg-white/10 placeholder:text-gray-400 focus-visible:ring-purple-400">
+                        <Textarea
+                          placeholder="What's the main message and supporting points?"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="brandGuidelines"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Brand Guidelines</FormLabel>
+                      <FormControl className="text-white border-0 bg-white/10 placeholder:text-gray-400 focus-visible:ring-purple-400">
+                        <Textarea
+                          placeholder="Brand colors, tone, style guidelines, and visual requirements"
+                          {...field}
+                        />
+                      </FormControl>
+                      <div className="space-y-2">
+                        <div>
+                          <p className="mb-1 text-xs text-muted-foreground">Colors:</p>
+                          <KeywordSuggestions
+                            keywords={briefSuggestions.brandGuidelines.colors}
+                            onSelect={(keyword) => {
+                              field.onChange(field.value ? `${field.value}, ${keyword}` : keyword);
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <p className="mb-1 text-xs text-muted-foreground">Typography:</p>
+                          <KeywordSuggestions
+                            keywords={briefSuggestions.brandGuidelines.typography}
+                            onSelect={(keyword) => {
+                              field.onChange(field.value ? `${field.value}, ${keyword}` : keyword);
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <p className="mb-1 text-xs text-muted-foreground">Style:</p>
+                          <KeywordSuggestions
+                            keywords={briefSuggestions.brandGuidelines.style}
+                            onSelect={(keyword) => {
+                              field.onChange(field.value ? `${field.value}, ${keyword}` : keyword);
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="bannerSizes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Banner Sizes</FormLabel>
+                      <FormControl className="text-white border-0 bg-white/10 placeholder:text-gray-400 focus-visible:ring-purple-400">
+                        <Input placeholder="e.g. 728x90, 300x250, 160x600" {...field} />
+                      </FormControl>
+                      <KeywordSuggestions
+                        keywords={briefSuggestions.bannerSizes}
+                        onSelect={(keyword) => {
+                          const size = keyword.split(" ")[0]; // Extract just the dimensions
+                          field.onChange(field.value ? `${field.value}, ${size}` : size);
+                        }}
+                      />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="brandContext"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Brand Context</FormLabel>
+                      <FormControl className="text-white border-0 bg-white/10 placeholder:text-gray-400 focus-visible:ring-purple-400">
+                        <Textarea
+                          placeholder="Brand's background, values, and market position"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="objective"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Campaign Objective</FormLabel>
+                      <FormControl className="text-white border-0 bg-white/10 placeholder:text-gray-400 focus-visible:ring-purple-400">
+                        <Textarea
+                          placeholder="Specific goals and desired outcomes of the campaign"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="consumerJourney"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Consumer Journey Stage</FormLabel>
+                      <FormControl className="text-white border-0 bg-white/10 placeholder:text-gray-400 focus-visible:ring-purple-400">
+                        <Textarea
+                          placeholder="Where does this fit in the customer journey?"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="emotionalConnection"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Emotional Connection</FormLabel>
+                      <FormControl className="text-white border-0 bg-white/10 placeholder:text-gray-400 focus-visible:ring-purple-400">
+                        <Textarea
+                          placeholder="Desired emotional response and psychological impact"
+                          {...field}
+                        />
+                      </FormControl>
+                      <KeywordSuggestions
+                        keywords={briefSuggestions.emotionalConnection}
+                        onSelect={(keyword) => {
+                          field.onChange(field.value ? `${field.value}, ${keyword}` : keyword);
+                        }}
+                      />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="visualStyle"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Visual Style</FormLabel>
+                      <FormControl className="text-white border-0 bg-white/10 placeholder:text-gray-400 focus-visible:ring-purple-400">
+                        <Textarea
+                          placeholder="Specific visual direction, references, and style preferences"
+                          {...field}
+                        />
+                      </FormControl>
+                      <KeywordSuggestions
+                        keywords={briefSuggestions.visualStyle}
+                        onSelect={(keyword) => {
+                          field.onChange(field.value ? `${field.value}, ${keyword}` : keyword);
+                        }}
+                      />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="performanceMetrics"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Performance Metrics</FormLabel>
+                      <FormControl className="text-white border-0 bg-white/10 placeholder:text-gray-400 focus-visible:ring-purple-400">
+                        <Textarea
+                          placeholder="How will success be measured?"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Button 
+                  type="submit" 
+                  disabled={mutation.isPending}
+                  className="bg-gradient-to-r from-purple-400 to-pink-400 hover:opacity-90"
+                >
+                  {mutation.isPending && (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  )}
+                  Generate Concepts
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-6">
+          <AssetLibrary />
+          {generatedConcepts.map((concept, index) => (
+            <React.Fragment key={index}>
+              <PreviewMode 
+                concept={concept}
+                bannerSizes={form.getValues("bannerSizes").split(",").map(s => s.trim())}
+              />
+              <Card>
+              <CardHeader>
+                <CardTitle>{concept.title}</CardTitle>
+                <CardDescription>{concept.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Accordion type="single" collapsible>
+                  <AccordionItem value="elements">
+                    <AccordionTrigger>Visual Elements</AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="font-medium">Background</h4>
+                          <p className="text-sm text-muted-foreground">{concept.elements.background}</p>
+                        </div>
+                        <div>
+                          <h4 className="font-medium">Graphics</h4>
+                          <p className="text-sm text-muted-foreground">{concept.elements.graphics}</p>
+                        </div>
+                        <div>
+                          <h4 className="font-medium">Text</h4>
+                          <p className="text-sm text-muted-foreground">{concept.elements.text}</p>
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                  <AccordionItem value="prompts">
+                    <AccordionTrigger>Midjourney Prompts</AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-4">
+                        {Object.entries(concept.midjourneyPrompts).map(([key, prompt]) => (
+                          <div key={key} className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-medium capitalize">{key}</h4>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => copyToClipboard(prompt)}
+                              >
+                                <Clipboard className="w-4 h-4" />
+                              </Button>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{prompt}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => selectedBriefId && shareMutation.mutate(selectedBriefId)}
+                  disabled={shareMutation.isPending || !selectedBriefId}
+                >
+                  {shareMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Share className="w-4 h-4 mr-2" />
+                  )}
+                  Share Brief
+                </Button>
+              </CardContent>
+            </Card>
+            </React.Fragment>
+          ))}
+        </div>
+        
+        <div className="mt-8">
+          <div className="grid grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Save as Template</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  onClick={() => {
+                    const templates = JSON.parse(localStorage.getItem('briefTemplates') || '[]');
+                    templates.push(form.getValues());
+                    localStorage.setItem('briefTemplates', JSON.stringify(templates));
+                    toast({
+                      title: "Template Saved",
+                      description: "Your brief has been saved as a template"
+                    });
+                  }}
+                >
+                  Save Current Brief
+                </Button>
+              </CardContent>
+            </Card>
           </div>
         </div>
-      </div>
     </div>
   );
 }

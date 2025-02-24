@@ -16,19 +16,19 @@ export default function SharedBrief() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   if (error || !brief) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <Card className="w-full max-w-md mx-4">
           <CardContent className="pt-6">
-            <div className="flex mb-4 gap-2">
-              <AlertCircle className="h-8 w-8 text-red-500" />
+            <div className="flex gap-2 mb-4">
+              <AlertCircle className="w-8 h-8 text-red-500" />
               <h1 className="text-2xl font-bold text-gray-900">Brief Not Found</h1>
             </div>
             <p className="mt-4 text-sm text-gray-600">
@@ -41,7 +41,7 @@ export default function SharedBrief() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen p-6 bg-background">
       <div className="max-w-4xl mx-auto space-y-8">
         <div className="space-y-2">
           <h1 className="text-4xl font-bold text-primary">{brief.projectName}</h1>
