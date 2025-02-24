@@ -8,6 +8,7 @@ import PostDetail from './pages/blog/PostDetail';
 import NotFound from './pages/blog/NotFound';
 import DesignEditor from './components/DesignEditor';
 import DesignsList from './components/DesignsList';
+import Home from './pages/brief/Home';
 
 export const routes: RouteObject[] = [
   {
@@ -33,6 +34,10 @@ export const routes: RouteObject[] = [
   {
     path: "/editor/:id",
     element: <DesignEditor />,
+  },
+  {
+    path: "/brief",
+    element: <Home />,
   },
   {
     path: "*",

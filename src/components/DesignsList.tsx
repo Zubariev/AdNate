@@ -143,7 +143,7 @@ const DesignsList: React.FC = () => {
         }}
         onDeleteDesign={handleDeleteDesign}
         onDuplicateDesign={handleDuplicateDesign}
-        onCreateNew={() => navigate('/editor/new')}
+        onCreateNew={() => navigate('/brief')}
       />
     </div>
   );

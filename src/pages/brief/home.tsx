@@ -1,28 +1,27 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { AssetLibrary } from "@/components/ui/asset-library";
-import { PreviewMode } from "@/components/ui/preview-mode";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { briefFormSchema, type Brief, type Concept } from "@shared/schema";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import { Clipboard, Loader2, Share } from "lucide-react";
+import { useToast } from "../../hooks/use-toast";
+import { AssetLibrary } from "../../components/ui/asset-library";
+import { PreviewMode } from "../../components/ui/preview-mode";
+import { apiRequest } from "../../lib/queryClient";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+} from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "../../components/ui/select";
 import {
   Form,
   FormControl,
@@ -30,19 +29,20 @@ import {
   FormItem,
   FormLabel,
   FormMessage
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+} from "../../components/ui/form";
+import { Input } from "../../components/ui/input";
+import { Textarea } from "../../components/ui/textarea";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion";
+} from "../../components/ui/accordion";
 import * as z from 'zod'
-import { KeywordSuggestions } from "@/components/ui/keyword-suggestions";
+import { KeywordSuggestions } from "../../components/ui/keyword-suggestions";
 import { briefSuggestions } from "../../lib/brief-suggestions";
-import { industryTemplates } from "@/lib/industry-templates";
+import { industryTemplates } from "../../lib/industry-templates";
+import { briefFormSchema, type Brief, type Concept } from "../../shared/schema";
 
 export default function Home() {
   const { toast } = useToast();

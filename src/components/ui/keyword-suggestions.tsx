@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "../../components/ui/button";
 
 interface KeywordSuggestionsProps {
   keywords: string[];
@@ -13,7 +13,7 @@ export function KeywordSuggestions({ keywords, onSelect }: KeywordSuggestionsPro
           key={keyword}
           variant="outline"
           size="sm"
-          className="text-xs px-2 py-0 h-6 bg-muted/50 hover:bg-muted"
+          className="h-6 px-2 py-0 text-xs bg-muted/50 hover:bg-muted"
           onClick={() => onSelect(keyword)}
         >
           {keyword}
