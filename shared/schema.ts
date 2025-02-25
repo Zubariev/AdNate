@@ -41,22 +41,16 @@ export const insertBriefSchema = createInsertSchema(briefs).pick({
 export type InsertBrief = z.infer<typeof insertBriefSchema>;
 export type Brief = typeof briefs.$inferSelect;
 
-export const briefFormSchema = insertBriefSchema.extend({
-  projectName: z.string().min(3, "Project name must be at least 3 characters"),
-  targetAudience: z.string().min(5, "Target audience description required"),
-  keyMessage: z.string().min(10, "Key message must be at least 10 characters"),
-  brandGuidelines: z.string().min(10, "Brand guidelines required"),
-  bannerSizes: z.string().min(3, "At least one banner size required"),
-  brandContext: z.string().optional(),
-  objective: z.string().optional(),
-  consumerJourney: z.string().optional(),
-  emotionalConnection: z.string().optional(),
-  visualStyle: z.string().optional(),
-  performanceMetrics: z.string().optional(),
-  shareId: z.string().optional(),
-  isPublic: z.boolean().optional(),
-  concepts: z.array(z.any()).optional().default([])
+export const briefFormSchema = z.object({
+  projectName: z.string().min(1),
+  targetAudience: z.string().min(1),
+  keyMessage: z.string().min(1),
+  brandGuidelines: z.string().min(1),
+  bannerSizes: z.string().min(1),
+  additionalInfo: z.string().optional(),
 });
+
+export type BriefFormData = z.infer<typeof briefFormSchema>;
 
 export type Concept = {
   title: string;

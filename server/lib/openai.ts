@@ -19,6 +19,13 @@ type BriefInput = {
 
 export async function generateConcepts(brief: BriefInput): Promise<any> {
   try {
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('OpenAI API key is missing');
+      throw new Error('OpenAI API key is not configured');
+    }
+
+    console.log('OpenAI API Key exists:', !!process.env.OPENAI_API_KEY);
+
     console.log('Generating concepts for brief:', brief);
 
     // First, let's auto-fill any missing fields
@@ -60,7 +67,7 @@ Please provide your response in JSON format with the following structure:
 }`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4",
       messages: [{ role: "user", content: completionPrompt }],
       response_format: { type: "json_object" }
     });
@@ -130,7 +137,7 @@ Return your response in the following JSON structure:
 
     console.log('Sending prompt to OpenAI');
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4",
       messages: [{ role: "user", content: conceptPrompt }],
       response_format: { type: "json_object" }
     });
@@ -145,7 +152,11 @@ Return your response in the following JSON structure:
     console.log('Parsed OpenAI response:', parsedContent);
     return parsedContent;
   } catch (error) {
-    console.error('Error generating concepts:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
     throw error;
   }
 }

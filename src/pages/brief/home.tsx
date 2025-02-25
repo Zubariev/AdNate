@@ -81,20 +81,35 @@ export default function Home() {
       emotionalConnection: "",
       visualStyle: "",
       performanceMetrics: "",
-      concepts: [] as any
+      concepts: []
     }
   });
 
+  // Add this to debug form state
+  useEffect(() => {
+    console.log('Form state:', {
+      isValid: form.formState.isValid,
+      errors: form.formState.errors,
+      values: form.getValues()
+    });
+  }, [form.formState]);
+
   const mutation = useMutation({
     mutationFn: async (formData: z.infer<typeof briefFormSchema>) => {
-      console.log('Submitting form data:', formData);
-      const response = await apiRequest("POST", "/api/briefs", formData);
-      const data = await response.json();
-      console.log('Response data:', data);
-      return data;
+      console.log('Starting mutation with data:', formData);
+      try {
+        const response = await apiRequest("POST", "/api/briefs", formData);
+        console.log('Raw response:', response);
+        const data = await response.json();
+        console.log('Parsed response data:', data);
+        return data;
+      } catch (error) {
+        console.error('Mutation error:', error);
+        throw error;
+      }
     },
     onSuccess: (data: Brief) => {
-      console.log('Success data:', data);
+      console.log('Mutation success:', data);
       if (data.concepts && Array.isArray(data.concepts)) {
         setGeneratedConcepts(data.concepts);
         setSelectedBriefId(data.id);
@@ -102,16 +117,10 @@ export default function Home() {
           title: "Success",
           description: "Creative brief generated successfully!"
         });
-      } else {
-        toast({
-          title: "Error",
-          description: "Invalid response format from server",
-          variant: "destructive"
-        });
       }
     },
     onError: (error: Error) => {
-      console.error('Mutation error:', error);
+      console.error('Mutation error in onError:', error);
       toast({
         title: "Error",
         description: error.message,
@@ -211,13 +220,20 @@ export default function Home() {
 
         <Card className="text-white border-0 bg-white/10 backdrop-blur-lg">
           <CardHeader>
-            <CardTitle className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
-              Create New Brief
-            </CardTitle>
           </CardHeader>
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-6">
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  console.log('Form submitted');
+                  form.handleSubmit((data) => {
+                    console.log('Form data:', data);
+                    mutation.mutate(data);
+                  })(e);
+                }} 
+                className="space-y-6"
+              >
                 <FormField
                   control={form.control}
                   name="projectName"
@@ -458,10 +474,14 @@ export default function Home() {
                   disabled={mutation.isPending}
                   className="bg-gradient-to-r from-purple-400 to-pink-400 hover:opacity-90"
                 >
-                  {mutation.isPending && (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {mutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    'Generate Concepts'
                   )}
-                  Generate Concepts
                 </Button>
               </form>
             </Form>
