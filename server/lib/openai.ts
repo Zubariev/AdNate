@@ -67,7 +67,7 @@ Please provide your response in JSON format with the following structure:
 }`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o",
       messages: [{ role: "user", content: completionPrompt }],
       response_format: { type: "json_object" }
     });
@@ -137,7 +137,7 @@ Return your response in the following JSON structure:
 
     console.log('Sending prompt to OpenAI');
     const response = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o",
       messages: [{ role: "user", content: conceptPrompt }],
       response_format: { type: "json_object" }
     });

@@ -17,9 +17,11 @@ console.log('Environment check:', {
 
 const app = express();
 
-// Add CORS middleware
+// Configure CORS before any routes
 app.use(cors({
-  origin: 'http://localhost:5173', // Frontend URL
+  origin: 'http://localhost:5173',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
 
