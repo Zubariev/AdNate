@@ -1,8 +1,8 @@
-import React, { useState, useRef, forwardRef } from 'react';
-import { Element } from '../types';
-import DesignElement from './DesignElement';
+import { useState, forwardRef } from 'react';
+import { Element } from '../types.ts';
+import DesignElement from './DesignElement.tsx';
 import { ZoomIn, ZoomOut } from 'lucide-react';
-import CustomSizeDialog from './CustomSizeDialog';
+import CustomSizeDialog from './CustomSizeDialog.tsx';
 
 interface CanvasProps {
   elements: Element[];
@@ -35,73 +35,6 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(({
     setElements(elements.map(el => 
       el.id === updatedElement.id ? updatedElement : el
     ));
-  };
-
-  const handleDeleteElement = (id: string) => {
-    setElements(elements.filter(el => el.id !== id));
-  };
-
-  const renderRulers = () => {
-    const horizontalMarks = [];
-    const verticalMarks = [];
-    const step = 50; // pixels between marks
-
-    for (let i = 0; i < width; i += step) {
-      horizontalMarks.push(
-        <div
-          key={`h-${i}`}
-          className="absolute border-l border-gray-300"
-          style={{
-            left: i,
-            height: 20 / 2,
-            top: 20 / 2,
-          }}
-        >
-          <span className="absolute -left-3 top-4 text-[8px] text-gray-500">
-            {i}
-          </span>
-        </div>
-      );
-    }
-
-    for (let i = 0; i < height; i += step) {
-      verticalMarks.push(
-        <div
-          key={`v-${i}`}
-          className="absolute border-t border-gray-300"
-          style={{
-            top: i,
-            width: 20 / 2,
-            left: 20 / 2,
-          }}
-        >
-          <span className="absolute -top-3 left-4 text-[8px] text-gray-500">
-            {i}
-          </span>
-        </div>
-      );
-    }
-
-    return (
-      <>
-        <div
-          className="absolute top-0 left-0 bg-white border-b border-r border-gray-300"
-          style={{ width: 20, height: 20, zIndex: 2 }}
-        />
-        <div
-          className="absolute top-0 left-0 h-full bg-white border-r border-gray-300"
-          style={{ width: 20, paddingTop: 20, zIndex: 1 }}
-        >
-          {verticalMarks}
-        </div>
-        <div
-          className="absolute top-0 left-0 w-full bg-white border-b border-gray-300"
-          style={{ height: 20, paddingLeft: 20, zIndex: 1 }}
-        >
-          {horizontalMarks}
-        </div>
-      </>
-    );
   };
 
   return (

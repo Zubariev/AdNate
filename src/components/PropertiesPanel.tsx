@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Element } from '../types';
-import { ChevronUp, ChevronDown, Copy, Trash, Bold, Italic, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
+import { Element } from '../types.ts';
+import { ChevronUp, ChevronDown, Copy, Trash, Bold, Italic } from 'lucide-react';
 
 interface PropertiesPanelProps {
   selectedElement: Element | null;
@@ -45,7 +45,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     );
   }
 
-  const handlePropertyUpdate = (property: keyof Element, value: any) => {
+  const handlePropertyUpdate = (property: keyof Element, value: string | number | boolean) => {
     const updatedElement = {
       ...elementState,
       [property]: value

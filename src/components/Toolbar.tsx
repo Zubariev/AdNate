@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Code, Save, Download, Upload, Grid, ArrowLeft } from 'lucide-react';
-import { Element, DesignData } from '../types';
-import html2canvas from 'html2canvas';
+import { Code, Save, Download, ArrowLeft } from 'lucide-react';
+import { Element, DesignData } from '../types.ts';
+import html2canvas from 'html2canvas/dist/html2canvas.js';
 
 interface ToolbarProps {
   elements: Element[];
@@ -112,7 +112,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
       // Create download link
       const link = document.createElement('a');
-      link.download = `${currentDesign?.metadata.name || 'design'}.png`;
+      link.download = `${currentDesign?.data?.metadata?.name || 'design'}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
     } catch (err) {

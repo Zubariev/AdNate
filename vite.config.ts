@@ -28,8 +28,11 @@ export default defineConfig({
   publicDir: 'public',
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './client/src'),
+      '@': path.resolve(__dirname, './src'),
       '@shared': path.resolve(__dirname, './shared')
     },
+  },
+  css: {
+    postcss: './postcss.config.js',
   },
 });
