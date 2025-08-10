@@ -1,9 +1,8 @@
-
 import { useState } from "react";
 import { useAuth } from "../../components/auth/AuthProvider";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { toast } from "../../components/ui/use-toast";
+import { useToast } from "../../components/ui/use-toast";
 
 export function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -19,7 +18,13 @@ export function Auth() {
       } else {
         await signUp(email, password);
       }
+      const { toast } = useToast();
+      toast({
+        title: "Success",
+        description: isLogin ? "Logged in successfully!" : "Account created successfully!",
+      });
     } catch (error: any) {
+      const { toast } = useToast();
       toast({
         title: "Error",
         description: error.message,
