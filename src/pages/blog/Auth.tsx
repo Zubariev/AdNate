@@ -1,11 +1,11 @@
 
 import { useState } from "react";
-import { useAuth } from "..//auth/AuthProvider";
-import { Button } from "..//ui/button";
-import { Input } from "..//ui/input";
-import { toast } from "..//ui/use-toast";
+import { useAuth } from "../../components/auth/AuthProvider";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { toast } from "../../components/ui/use-toast";
 
-export default function Auth() {
+export function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

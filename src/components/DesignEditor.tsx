@@ -53,6 +53,7 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
   const [showImageGenerator, setShowImageGenerator] = useState<boolean>(false);
   const [showCustomSizeDialog, setShowCustomSizeDialog] = useState<boolean>(false);
   const [designName, setDesignName] = useState<string>('Untitled Design');
+  const [zoom, setZoom] = useState<number>(1);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const addElement = useCallback((element: Partial<DesignElement>) => {
@@ -268,4 +269,4 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
   );
 };
 
-export default DesignEditor;
+export { DesignEditor };
