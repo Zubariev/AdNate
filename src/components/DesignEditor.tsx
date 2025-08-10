@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -12,9 +11,10 @@ import ImageGenerator from './ImageGenerator';
 import CustomSizeDialog from './CustomSizeDialog';
 import html2canvas from 'html2canvas';
 
+// TypeScript interfaces
 interface DesignElement {
   id: string;
-  type: 'text' | 'shape' | 'image' | 'icon';
+  type: 'text' | 'image' | 'shape' | 'icon' | 'line'; // Added 'line'
   x: number;
   y: number;
   width: number;
@@ -32,6 +32,7 @@ interface DesignElement {
   isBold?: boolean;
   isItalic?: boolean;
   iconName?: string;
+  properties?: Record<string, any>; // Added for generic properties
 }
 
 interface CanvasSize {
@@ -39,10 +40,14 @@ interface CanvasSize {
   height: number;
 }
 
-interface DesignEditorProps {}
+interface DesignEditorProps {
+  initialElements?: DesignElement[];
+  onSave?: (elements: DesignElement[]) => void;
+  onExport?: (format: string) => void;
+}
 
-const DesignEditor: React.FC<DesignEditorProps> = () => {
-  const [elements, setElements] = useState<DesignElement[]>([]);
+const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSave, onExport }) => {
+  const [elements, setElements] = useState<DesignElement[]>(initialElements);
   const [selectedElement, setSelectedElement] = useState<DesignElement | null>(null);
   const [canvasSize, setCanvasSize] = useState<CanvasSize>({ width: 800, height: 600 });
   const [showImageGenerator, setShowImageGenerator] = useState<boolean>(false);
@@ -50,11 +55,28 @@ const DesignEditor: React.FC<DesignEditorProps> = () => {
   const [designName, setDesignName] = useState<string>('Untitled Design');
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  const addElement = useCallback((element: Omit<DesignElement, 'id' | 'zIndex'>) => {
+  const addElement = useCallback((element: Partial<DesignElement>) => {
     const newElement: DesignElement = {
-      ...element,
       id: Date.now().toString(),
+      type: element.type || 'text',
+      x: element.x || 0,
+      y: element.y || 0,
+      width: element.width || 100,
+      height: element.height || 50,
+      rotation: element.rotation || 0,
+      content: element.content || '',
+      fontSize: element.fontSize || 16,
+      fontFamily: element.fontFamily || 'Arial',
+      color: element.color || '#000000',
+      backgroundColor: element.backgroundColor || 'transparent',
+      opacity: element.opacity !== undefined ? element.opacity : 1,
+      shapeType: element.shapeType,
       zIndex: elements.length,
+      locked: element.locked || false,
+      isBold: element.isBold || false,
+      isItalic: element.isItalic || false,
+      iconName: element.iconName,
+      properties: element.properties || {},
     };
     setElements(prev => [...prev, newElement]);
   }, [elements.length]);
@@ -63,6 +85,7 @@ const DesignEditor: React.FC<DesignEditorProps> = () => {
     setElements(prev => prev.map(el => 
       el.id === id ? { ...el, ...updates } : el
     ));
+    // Update selectedElement if it's the one being updated
     if (selectedElement?.id === id) {
       setSelectedElement(prev => prev ? { ...prev, ...updates } : null);
     }
@@ -76,32 +99,38 @@ const DesignEditor: React.FC<DesignEditorProps> = () => {
   }, [selectedElement]);
 
   const duplicateElement = useCallback((id: string) => {
-    const element = elements.find(el => el.id === id);
-    if (element) {
+    const elementToDuplicate = elements.find(el => el.id === id);
+    if (elementToDuplicate) {
       const newElement: DesignElement = {
-        ...element,
+        ...elementToDuplicate,
         id: Date.now().toString(),
-        x: element.x + 20,
-        y: element.y + 20,
-        zIndex: elements.length,
+        x: elementToDuplicate.x + 20, // Offset for visibility
+        y: elementToDuplicate.y + 20,
+        zIndex: elements.length, // Ensure new element is on top
       };
       setElements(prev => [...prev, newElement]);
     }
   }, [elements]);
 
   const exportDesign = useCallback(async () => {
-    if (canvasRef.current) {
-      try {
-        const canvas = await html2canvas(canvasRef.current);
-        const link = document.createElement('a');
-        link.download = `${designName}.png`;
-        link.href = canvas.toDataURL();
-        link.click();
-      } catch (error) {
-        console.error('Export failed:', error);
+    if (onExport) {
+      // Assuming onExport is for exporting the data structure, not the rendered image
+      onExport('json'); // Or any other format
+    } else {
+      // Default export to PNG using html2canvas
+      if (canvasRef.current) {
+        try {
+          const canvas = await html2canvas(canvasRef.current);
+          const link = document.createElement('a');
+          link.download = `${designName}.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+        } catch (error) {
+          console.error('Export failed:', error);
+        }
       }
     }
-  }, [designName]);
+  }, [designName, onExport]);
 
   const handleCanvasSizeChange = useCallback((preset: string) => {
     const sizes: Record<string, CanvasSize> = {
@@ -109,15 +138,23 @@ const DesignEditor: React.FC<DesignEditorProps> = () => {
       'story': { width: 1080, height: 1920 },
       'banner': { width: 1200, height: 628 },
       'poster': { width: 600, height: 800 },
-      'custom': canvasSize,
+      'custom': canvasSize, // Keep current size if 'custom' is selected, dialog will handle actual change
     };
-    
+
     if (preset === 'custom') {
       setShowCustomSizeDialog(true);
-    } else {
+    } else if (sizes[preset]) {
       setCanvasSize(sizes[preset]);
     }
-  }, [canvasSize]);
+  }, [canvasSize]); // Dependency on canvasSize is for the 'custom' case to pass current size
+
+  const handleSave = useCallback(() => {
+    if (onSave) {
+      onSave(elements);
+    } else {
+      console.log('Saving elements:', elements);
+    }
+  }, [onSave, elements]);
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -140,6 +177,9 @@ const DesignEditor: React.FC<DesignEditorProps> = () => {
           <Button onClick={exportDesign}>
             Export
           </Button>
+          <Button onClick={handleSave} variant="secondary">
+            Save
+          </Button>
         </div>
       </div>
 
@@ -155,10 +195,11 @@ const DesignEditor: React.FC<DesignEditorProps> = () => {
           <Toolbar 
             onCanvasSizeChange={handleCanvasSizeChange}
             canvasSize={canvasSize}
+            onZoomChange={setZoom} // Assuming Toolbar will handle zoom
+            currentZoom={zoom}
           />
-          <div className="flex-1 overflow-auto p-8 bg-gray-100">
+          <div className="flex-1 overflow-auto p-8 bg-gray-100" ref={canvasRef}>
             <Canvas
-              ref={canvasRef}
               elements={elements}
               selectedElement={selectedElement}
               onSelectElement={setSelectedElement}
@@ -166,6 +207,7 @@ const DesignEditor: React.FC<DesignEditorProps> = () => {
               onDeleteElement={deleteElement}
               onDuplicateElement={duplicateElement}
               canvasSize={canvasSize}
+              zoom={zoom}
             />
           </div>
         </div>
@@ -186,6 +228,8 @@ const DesignEditor: React.FC<DesignEditorProps> = () => {
               <PropertiesPanel
                 element={selectedElement}
                 onUpdateElement={(updates) => updateElement(selectedElement.id, updates)}
+                onDeleteElement={() => deleteElement(selectedElement.id)}
+                onDuplicateElement={() => duplicateElement(selectedElement.id)}
               />
             </div>
           )}
@@ -199,13 +243,11 @@ const DesignEditor: React.FC<DesignEditorProps> = () => {
           onImageGenerated={(imageUrl: string) => {
             addElement({
               type: 'image',
-              x: 100,
-              y: 100,
-              width: 200,
-              height: 200,
-              rotation: 0,
-              opacity: 1,
               content: imageUrl,
+              width: 200, // Default width for generated image
+              height: 200, // Default height for generated image
+              x: canvasSize.width / 2 - 100, // Center horizontally
+              y: canvasSize.height / 2 - 100, // Center vertically
             });
             setShowImageGenerator(false);
           }}

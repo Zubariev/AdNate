@@ -1,8 +1,8 @@
-
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import type { User } from "@supabase/supabase-js";
+import { useLocation } from 'react-router-dom';
 
 interface AuthContextType {
   user: User | null;
@@ -22,26 +22,39 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshTimer, setRefreshTimer] = useState<NodeJS.Timeout | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const location = useLocation();
+
+  const handleExpiredSession = async () => {
+    setSessionExpired(true);
+    setUser(null);
+    // Clear any cached data
+    localStorage.removeItem('supabase.auth.token');
+    sessionStorage.clear();
+
+    // Show session expired message briefly, then redirect
+    setTimeout(() => {
+      setSessionExpired(false);
+      window.location.href = '/auth?expired=true';
+    }, 2000);
+  };
 
   // Session validation function
   const validateSession = async () => {
-    try {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        console.error('Session validation error:', error);
-        setUser(null);
-        return;
+    if (user) {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error || !session) {
+          console.error('Session validation failed:', error);
+          handleExpiredSession(); // Handle expired or invalid session
+        } else if (session.user.id !== user.id) {
+          // Session user mismatch, update user state
+          setUser(session.user);
+        }
+      } catch (error) {
+        console.error('Error validating session:', error);
+        handleExpiredSession(); // Handle potential network errors
       }
-      
-      if (session) {
-        setUser(session.user);
-      } else {
-        setUser(null);
-      }
-    } catch (error) {
-      console.error('Error validating session:', error);
-      setUser(null);
     }
   };
 
@@ -51,76 +64,78 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { data, error } = await supabase.auth.refreshSession();
       if (error) {
         console.error('Token refresh error:', error);
-        await signOut();
+        if (error.message?.includes('refresh_token_not_found')) {
+          await handleExpiredSession();
+        }
         return;
       }
-      
+
       if (data.session) {
         setUser(data.session.user);
       }
     } catch (error) {
       console.error('Error refreshing session:', error);
-      await signOut();
+      await handleExpiredSession();
     }
   };
 
-  // Initialize auth state
+  // Initialize auth state and set up listeners
   useEffect(() => {
-    const initializeAuth = async () => {
-      await validateSession();
-      setLoading(false);
+    // Get initial session
+    const getInitialSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Error getting session:', error);
+        }
+        setUser(session?.user ?? null);
+      } catch (error) {
+        console.error('Error in getInitialSession:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    initializeAuth();
+    getInitialSession();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          setUser(session?.user || null);
+        setUser(session?.user ?? null);
+        if (event === 'SIGNED_IN') {
+          setLoading(false);
         } else if (event === 'SIGNED_OUT') {
-          setUser(null);
+          await handleExpiredSession(); // Ensure cleanup on explicit sign out
         }
-        setLoading(false);
       }
     );
 
+    // Set up token refresh timer
+    const refreshTimer = setInterval(async () => {
+      await refreshSession();
+    }, 50 * 60 * 1000); // Refresh every 50 minutes
+
     return () => {
       subscription?.unsubscribe();
-      if (refreshTimer) {
-        clearInterval(refreshTimer);
-      }
+      clearInterval(refreshTimer);
     };
   }, []);
 
-  // Set up token refresh timer
+  // Validate session on route changes
   useEffect(() => {
-    if (user && !refreshTimer) {
-      // Refresh token every 50 minutes (tokens expire in 60 minutes)
-      const timer = setInterval(refreshSession, 50 * 60 * 1000);
-      setRefreshTimer(timer);
-    } else if (!user && refreshTimer) {
-      clearInterval(refreshTimer);
-      setRefreshTimer(null);
-    }
-
-    return () => {
-      if (refreshTimer) {
-        clearInterval(refreshTimer);
-      }
-    };
-  }, [user, refreshTimer]);
+    validateSession();
+  }, [location.pathname, user?.id]);
 
   const signIn = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    
+
     if (data.session) {
       setUser(data.session.user);
     }
-    
+
     return { error };
   };
 
@@ -129,26 +144,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       email,
       password,
     });
-    
+
     return { error };
   };
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
-      setUser(null);
-      
-      // Clear any cached data
+      // Clear localStorage/sessionStorage
       localStorage.clear();
       sessionStorage.clear();
-      
-      // Clear refresh timer
-      if (refreshTimer) {
-        clearInterval(refreshTimer);
-        setRefreshTimer(null);
+
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Error signing out:', error);
       }
+
+      // Reset auth state
+      setUser(null);
+
+      // Redirect to auth page
+      window.location.href = '/auth';
     } catch (error) {
-      console.error('Sign out error:', error);
+      console.error('Error in signOut:', error);
+      // Force logout even if there's an error
+      setUser(null);
+      window.location.href = '/auth';
     }
   };
 
@@ -160,6 +181,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signOut,
     refreshSession,
   };
+
+  // Show session expired message
+  if (sessionExpired) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <h2 className="text-lg font-semibold text-yellow-800 mb-2">Session Expired</h2>
+          <p className="text-yellow-700">Your session has expired. Redirecting to login...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AuthContext.Provider value={value}>

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, BookOpen } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { ROUTE_PATHS } from "../routes";
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -11,6 +12,16 @@ const LandingPage = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Placeholder for authentication status, assuming it's managed elsewhere or will be added.
+  // In a real app, you'd likely get this from an AuthProvider or context.
+  const user = null; // Replace with actual user state if available
+
+  useEffect(() => {
+    if (user) {
+      navigate(ROUTE_PATHS.DESIGNS);
+    }
+  }, [user, navigate]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +54,7 @@ const LandingPage = () => {
 
       if (data.user) {
         localStorage.setItem('isAuthenticated', 'true');
-        navigate('/designs');
+        navigate(ROUTE_PATHS.DESIGNS);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign up');
@@ -67,12 +78,20 @@ const LandingPage = () => {
 
       if (data.user) {
         localStorage.setItem('isAuthenticated', 'true');
-        navigate('/designs');
+        navigate(ROUTE_PATHS.DESIGNS);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to log in');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGetStarted = () => {
+    if (user) {
+      navigate(ROUTE_PATHS.DESIGNS);
+    } else {
+      navigate(ROUTE_PATHS.AUTH);
     }
   };
 
@@ -117,7 +136,7 @@ const LandingPage = () => {
           No design experience needed.
         </p>
         <button
-          onClick={() => setShowSignupModal(true)}
+          onClick={handleGetStarted}
           className="px-8 py-4 text-lg font-medium transition-all duration-300 rounded-lg bg-gradient-to-r from-purple-400 to-pink-400 hover:opacity-90"
         >
           Start Creating Free
