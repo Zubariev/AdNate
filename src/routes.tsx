@@ -10,6 +10,7 @@ const BlogIndex = lazy(() => import("./pages/blog/Index").then(module => ({ defa
 const PostDetail = lazy(() => import("./pages/blog/PostDetail").then(module => ({ default: module.PostDetail })));
 const NotFound = lazy(() => import("./pages/blog/NotFound").then(module => ({ default: module.NotFound })));
 const Auth = lazy(() => import("./pages/blog/Auth").then(module => ({ default: module.Auth })));
+const BlogManager = lazy(() => import("./pages/admin/BlogManager").then(module => ({ default: module.BlogManager })));
 
 // Loading component
 const LoadingSpinner = () => (
@@ -33,7 +34,8 @@ export const ROUTE_PATHS = {
   BLOG: "/blog",
   BLOG_POST: "/blog/:id",
   AUTH: "/auth",
-  NOT_FOUND: "*"
+  NOT_FOUND: "*",
+  ADMIN_BLOG: "/admin/blog"
 } as const;
 
 export const routes: RouteObject[] = [
@@ -94,6 +96,16 @@ export const routes: RouteObject[] = [
         element: (
           <LazyWrapper>
             <Auth />
+          </LazyWrapper>
+        ),
+      },
+      {
+        path: ROUTE_PATHS.ADMIN_BLOG.slice(1), // Remove leading slash for nested route
+        element: (
+          <LazyWrapper>
+            <ProtectedRoute>
+              <BlogManager />
+            </ProtectedRoute>
           </LazyWrapper>
         ),
       },
