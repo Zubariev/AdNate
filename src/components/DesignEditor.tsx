@@ -10,6 +10,8 @@ import Toolbar from './Toolbar';
 import ImageGenerator from './ImageGenerator';
 import CustomSizeDialog from './CustomSizeDialog';
 import html2canvas from 'html2canvas';
+import { saveDesign, updateDesign, autoSaveDesign, cancelAutoSave } from '../lib/designOperations';
+import { useToast } from './ui/use-toast';
 
 // TypeScript interfaces
 interface DesignElement {
@@ -44,9 +46,10 @@ interface DesignEditorProps {
   initialElements?: DesignElement[];
   onSave?: (elements: DesignElement[]) => void;
   onExport?: (format: string) => void;
+  designId?: string; // Assuming a designId is passed for updates
 }
 
-const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSave, onExport }) => {
+const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSave, onExport, designId }) => {
   const [elements, setElements] = useState<DesignElement[]>(initialElements);
   const [selectedElement, setSelectedElement] = useState<DesignElement | null>(null);
   const [canvasSize, setCanvasSize] = useState<CanvasSize>({ width: 800, height: 600 });
@@ -55,6 +58,58 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
   const [designName, setDesignName] = useState<string>('Untitled Design');
   const [zoom, setZoom] = useState<number>(1);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const autoSaveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const currentDesignId = useRef(designId); // Use ref to keep track of the latest designId
+
+  useEffect(() => {
+    // Set the initial design name if elements are provided
+    if (initialElements.length > 0 && initialElements[0].content) {
+      // Assuming the first element might hold the design name if not explicitly set
+      // Or a more robust way to get the name if it's stored elsewhere
+      // For now, we stick to the state variable
+    }
+    
+    // Start auto-save if a designId is present
+    if (currentDesignId.current) {
+      startAutoSave();
+    }
+
+    return () => {
+      // Clean up auto-save interval on component unmount
+      if (autoSaveIntervalRef.current) {
+        cancelAutoSave(autoSaveIntervalRef.current);
+      }
+    };
+  }, []); // Empty dependency array ensures this runs only on mount
+
+  useEffect(() => {
+    // Update the designId ref if it changes
+    currentDesignId.current = designId;
+    if (designId) {
+      startAutoSave();
+    } else {
+      if (autoSaveIntervalRef.current) {
+        cancelAutoSave(autoSaveIntervalRef.current);
+        autoSaveIntervalRef.current = null;
+      }
+    }
+  }, [designId]);
+
+  const startAutoSave = useCallback(() => {
+    if (currentDesignId.current && !autoSaveIntervalRef.current) {
+      autoSaveIntervalRef.current = autoSaveDesign(currentDesignId.current, elements, (status) => {
+        setSaveStatus(status);
+        if (status === 'saved') {
+          setLastSaved(new Date());
+        } else if (status === 'error') {
+          toast({ title: "Auto-save failed", description: "There was an error saving your design." });
+        }
+      });
+    }
+  }, [elements, toast]);
 
   const addElement = useCallback((element: Partial<DesignElement>) => {
     const newElement: DesignElement = {
@@ -86,7 +141,6 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
     setElements(prev => prev.map(el => 
       el.id === id ? { ...el, ...updates } : el
     ));
-    // Update selectedElement if it's the one being updated
     if (selectedElement?.id === id) {
       setSelectedElement(prev => prev ? { ...prev, ...updates } : null);
     }
@@ -105,33 +159,83 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
       const newElement: DesignElement = {
         ...elementToDuplicate,
         id: Date.now().toString(),
-        x: elementToDuplicate.x + 20, // Offset for visibility
+        x: elementToDuplicate.x + 20,
         y: elementToDuplicate.y + 20,
-        zIndex: elements.length, // Ensure new element is on top
+        zIndex: elements.length,
       };
       setElements(prev => [...prev, newElement]);
     }
   }, [elements]);
 
-  const exportDesign = useCallback(async () => {
+  const exportDesign = useCallback(async (format: string = 'png') => {
     if (onExport) {
-      // Assuming onExport is for exporting the data structure, not the rendered image
-      onExport('json'); // Or any other format
+      onExport(format); // Call parent handler if provided
     } else {
-      // Default export to PNG using html2canvas
       if (canvasRef.current) {
         try {
-          const canvas = await html2canvas(canvasRef.current);
-          const link = document.createElement('a');
-          link.download = `${designName}.png`;
-          link.href = canvas.toDataURL('image/png');
+          // Ensure elements are rendered correctly before capturing
+          // Potentially add a slight delay or wait for rendering if needed
+          const canvas = await html2canvas(canvasRef.current, { scale: zoom }); // Use zoom level for export
+          let link: HTMLAnchorElement;
+
+          if (format === 'png') {
+            link = document.createElement('a');
+            link.download = `${designName}.png`;
+            link.href = canvas.toDataURL('image/png');
+          } else if (format === 'json') {
+            // Exporting the design data structure
+            const jsonContent = JSON.stringify(elements, null, 2);
+            const blob = new Blob([jsonContent], { type: 'application/json' });
+            link = document.createElement('a');
+            link.download = `${designName}.json`;
+            link.href = URL.createObjectURL(blob);
+          } else {
+            console.error("Unsupported export format:", format);
+            return;
+          }
+          
           link.click();
+          URL.revokeObjectURL(link.href); // Clean up the object URL
         } catch (error) {
           console.error('Export failed:', error);
+          toast({ title: "Export failed", description: "Could not export the design." });
         }
       }
     }
-  }, [designName, onExport]);
+  }, [designName, onExport, elements, zoom, toast]); // Include zoom and elements
+
+  const manualSave = useCallback(async () => {
+    if (!currentDesignId.current) {
+      // If no designId, perform a save operation that might return an ID
+      // For now, we'll just log and indicate no ID is available
+      console.log("Saving new design...");
+      const newDesignId = await saveDesign(designName, elements); // Assume saveDesign returns an ID
+      if (newDesignId) {
+        currentDesignId.current = newDesignId;
+        setSaveStatus('saved');
+        setLastSaved(new Date());
+        toast({ title: "Design saved successfully", description: `Your design "${designName}" has been saved.` });
+        startAutoSave(); // Start auto-save for the newly created design
+      } else {
+        setSaveStatus('error');
+        toast({ title: "Save failed", description: "Could not save the design." });
+      }
+      return;
+    }
+
+    // If designId exists, update the existing design
+    setSaveStatus('saving');
+    try {
+      await updateDesign(currentDesignId.current, designName, elements);
+      setSaveStatus('saved');
+      setLastSaved(new Date());
+      toast({ title: "Design updated successfully", description: `Your design "${designName}" has been updated.` });
+    } catch (error) {
+      console.error('Save failed:', error);
+      setSaveStatus('error');
+      toast({ title: "Save failed", description: "There was an error updating your design." });
+    }
+  }, [designName, elements, toast]);
 
   const handleCanvasSizeChange = useCallback((preset: string) => {
     const sizes: Record<string, CanvasSize> = {
@@ -139,33 +243,44 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
       'story': { width: 1080, height: 1920 },
       'banner': { width: 1200, height: 628 },
       'poster': { width: 600, height: 800 },
-      'custom': canvasSize, // Keep current size if 'custom' is selected, dialog will handle actual change
+      'custom': canvasSize,
     };
 
     if (preset === 'custom') {
       setShowCustomSizeDialog(true);
     } else if (sizes[preset]) {
       setCanvasSize(sizes[preset]);
+      // Potentially trigger an update or save if canvas size change is considered a significant modification
     }
-  }, [canvasSize]); // Dependency on canvasSize is for the 'custom' case to pass current size
+  }, [canvasSize]);
 
   const handleSave = useCallback(() => {
-    if (onSave) {
-      onSave(elements);
-    } else {
-      console.log('Saving elements:', elements);
-    }
-  }, [onSave, elements]);
+    manualSave(); // Use the new manualSave function
+  }, [manualSave]);
+
+  // Function to add text element (example for Toolbar)
+  const addText = useCallback(() => {
+    addElement({ type: 'text', content: 'New Text', x: 50, y: 50, width: 150, height: 30, fontSize: 20 });
+  }, [addElement]);
+
+  // Function to add shape element (example for Toolbar)
+  const addShape = useCallback((shapeType: string) => {
+    const baseShape = { type: 'shape' as const, shapeType: shapeType, x: 50, y: 50, width: 100, height: 100, backgroundColor: '#3b82f6', color: '#ffffff' };
+    addElement(baseShape);
+  }, [addElement]);
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      {/* Header */}
       <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Input
             value={designName}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDesignName(e.target.value)}
-            className="text-lg font-semibold border-none shadow-none"
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+              setDesignName(e.target.value);
+              // Optionally trigger an update/save here if design name change should be persisted immediately
+            }}
+            className="text-lg font-semibold border-none shadow-none max-w-sm" // Added max-width for better layout
+            placeholder="Untitled Design"
           />
         </div>
         <div className="flex items-center space-x-2">
@@ -175,57 +290,68 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
           >
             AI Image
           </Button>
-          <Button onClick={exportDesign}>
-            Export
+          <Button onClick={() => exportDesign('png')} variant="outline">
+            Export PNG
           </Button>
-          <Button onClick={handleSave} variant="secondary">
-            Save
+          <Button onClick={() => exportDesign('json')} variant="outline">
+            Export JSON
           </Button>
+          <Button onClick={handleSave} disabled={saveStatus === 'saving'}>
+            {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved' : 'Save'}
+          </Button>
+          {lastSaved && saveStatus === 'saved' && (
+             <span className="text-sm text-gray-500">Last saved: {lastSaved.toLocaleTimeString()}</span>
+          )}
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar */}
-        <div className="w-64 bg-white border-r border-gray-200 overflow-y-auto">
+        <div className="w-64 bg-white border-r border-gray-200 overflow-y-auto p-4">
+          <h3 className="text-lg font-semibold mb-4">Elements</h3>
           <ElementPanel onAddElement={addElement} />
         </div>
 
-        {/* Canvas Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <Toolbar 
-            onCanvasSizeChange={handleCanvasSizeChange}
+            onAddText={addText}
+            onAddShape={addShape}
+            onAddImage={() => setShowImageGenerator(true)}
             canvasSize={canvasSize}
-            onZoomChange={setZoom} // Assuming Toolbar will handle zoom
-            currentZoom={zoom}
+            onCanvasSizeChange={handleCanvasSizeChange}
+            onCustomSizeClick={() => setShowCustomSizeDialog(true)}
+            onExport={exportDesign}
+            onSave={manualSave}
+            saveStatus={saveStatus}
+            lastSaved={lastSaved}
           />
-          <div className="flex-1 overflow-auto p-8 bg-gray-100" ref={canvasRef}>
-            <Canvas
-              elements={elements}
-              selectedElement={selectedElement}
-              onSelectElement={setSelectedElement}
-              onUpdateElement={updateElement}
-              onDeleteElement={deleteElement}
-              onDuplicateElement={duplicateElement}
-              canvasSize={canvasSize}
-              zoom={zoom}
-            />
+          <div className="flex-1 overflow-auto p-8 bg-gray-100 relative" ref={canvasRef}>
+            <div style={{ width: canvasSize.width, height: canvasSize.height, transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
+              <Canvas
+                elements={elements}
+                selectedElement={selectedElement}
+                onSelectElement={setSelectedElement}
+                onUpdateElement={updateElement}
+                onDeleteElement={deleteElement}
+                onDuplicateElement={duplicateElement}
+                canvasSize={canvasSize}
+                zoom={zoom}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Right Sidebar */}
-        <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto">
-          <div className="p-4">
-            <LayerPanel
-              elements={elements}
-              selectedElement={selectedElement}
-              onSelectElement={setSelectedElement}
-              onUpdateElement={updateElement}
-              onDeleteElement={deleteElement}
-            />
-          </div>
+        <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto p-4">
+          <h3 className="text-lg font-semibold mb-4">Layers</h3>
+          <LayerPanel
+            elements={elements}
+            selectedElement={selectedElement}
+            onSelectElement={setSelectedElement}
+            onUpdateElement={updateElement}
+            onDeleteElement={deleteElement}
+          />
           {selectedElement && (
-            <div className="border-t border-gray-200">
+            <div className="mt-6 border-t border-gray-200 pt-4">
+              <h3 className="text-lg font-semibold mb-4">Properties</h3>
               <PropertiesPanel
                 element={selectedElement}
                 onUpdateElement={(updates) => updateElement(selectedElement.id, updates)}
@@ -237,7 +363,6 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
         </div>
       </div>
 
-      {/* Modals */}
       {showImageGenerator && (
         <ImageGenerator
           onClose={() => setShowImageGenerator(false)}
@@ -245,10 +370,10 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
             addElement({
               type: 'image',
               content: imageUrl,
-              width: 200, // Default width for generated image
-              height: 200, // Default height for generated image
-              x: canvasSize.width / 2 - 100, // Center horizontally
-              y: canvasSize.height / 2 - 100, // Center vertically
+              width: 200,
+              height: 200,
+              x: canvasSize.width / 2 - 100,
+              y: canvasSize.height / 2 - 100,
             });
             setShowImageGenerator(false);
           }}
