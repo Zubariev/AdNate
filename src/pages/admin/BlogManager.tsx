@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -7,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { Badge } from "../../components/ui/badge";
 import { useToast } from "../../components/ui/use-toast";
 import { supabase } from "../../lib/supabase";
-import { sanitizeHtml } from "../../lib/sanitization";
+import { sanitizeBlogContent } from "../../lib/sanitization";
 import { validateBlogPost } from "../../lib/validations";
 
 interface BlogPost {
@@ -63,7 +62,7 @@ export function BlogManager() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate form data
     const validation = validateBlogPost(formData);
     if (!validation.success) {
@@ -81,8 +80,8 @@ export function BlogManager() {
       // Sanitize content
       const sanitizedData = {
         ...formData,
-        content: sanitizeHtml(formData.content, 'blog'),
-        excerpt: sanitizeHtml(formData.excerpt, 'text'),
+        content: sanitizeBlogContent(formData.content),
+        excerpt: sanitizeBlogContent(formData.excerpt),
         slug: generateSlug(formData.title),
       };
 
@@ -119,7 +118,7 @@ export function BlogManager() {
       // Reset form and reload posts
       resetForm();
       loadPosts();
-      
+
     } catch (error) {
       console.error('Error saving post:', error);
       toast({
@@ -159,7 +158,7 @@ export function BlogManager() {
         title: "Success",
         description: "Blog post deleted successfully!",
       });
-      
+
       loadPosts();
     } catch (error) {
       console.error('Error deleting post:', error);
