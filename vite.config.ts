@@ -9,7 +9,13 @@ export default defineConfig({
     exclude: ['lucide-react'],
   },
   server: {
+<<<<<<< HEAD
     port: 3000,
+=======
+    host: '0.0.0.0',
+    port: 5173,
+    allowedHosts: 'all',
+>>>>>>> c600462 (Assistant checkpoint: Allow all hosts in Vite configuration)
     headers: {
       'Content-Type': 'application/javascript',
     },
