@@ -1,4 +1,3 @@
-
 import DOMPurify from 'dompurify';
 
 // Configuration for different content types
@@ -31,8 +30,12 @@ const STRICT_CONFIG = {
 /**
  * Sanitize HTML content for blog posts
  */
-export function sanitizeBlogContent(html: string): string {
-  return DOMPurify.sanitize(html, BLOG_CONFIG);
+export function sanitizeBlogContent(content: string): string {
+  return DOMPurify.sanitize(content, {
+    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'img'],
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'title'],
+    ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i
+  });
 }
 
 /**
@@ -46,7 +49,12 @@ export function sanitizeCommentContent(html: string): string {
  * Sanitize text content (remove all HTML)
  */
 export function sanitizeText(text: string): string {
-  return DOMPurify.sanitize(text, STRICT_CONFIG);
+  // Remove potentially dangerous characters and limit special characters
+  return text
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
+    .replace(/<[^>]*>/g, '') // Remove all HTML tags
+    .replace(/[<>'"&]/g, '') // Remove dangerous characters
+    .trim();
 }
 
 /**

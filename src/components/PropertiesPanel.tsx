@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { DesignElement } from '../types';
 import { Button } from './ui/button';
@@ -40,37 +39,37 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           sanitizedValue = sanitizedValue.substring(0, 1000);
         }
         break;
-      
+
       case 'x':
       case 'y':
         sanitizedValue = Math.max(0, Math.min(Number(value) || 0, 5000));
         break;
-      
+
       case 'width':
       case 'height':
         sanitizedValue = Math.max(1, Math.min(Number(value) || 1, 5000));
         break;
-      
+
       case 'fontSize':
         sanitizedValue = Math.max(8, Math.min(Number(value) || 16, 200));
         break;
-      
+
       case 'rotation':
         sanitizedValue = Math.max(-360, Math.min(Number(value) || 0, 360));
         break;
-      
+
       case 'zIndex':
         sanitizedValue = Math.max(0, Math.min(Number(value) || 0, 9999));
         break;
-      
+
       case 'borderWidth':
         sanitizedValue = Math.max(0, Math.min(Number(value) || 0, 20));
         break;
-      
+
       case 'opacity':
         sanitizedValue = Math.max(0, Math.min(Number(value) || 1, 1));
         break;
-      
+
       case 'color':
       case 'backgroundColor':
       case 'borderColor':
@@ -79,7 +78,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           return; // Don't update if invalid color format
         }
         break;
-      
+
       case 'fontFamily':
         // Allow only safe font families
         const safeFonts = ['Arial', 'Helvetica', 'Times New Roman', 'Georgia', 'Verdana', 'Courier New'];

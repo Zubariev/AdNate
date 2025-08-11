@@ -15,6 +15,101 @@ interface ApiResponse<T> {
   status: number;
 }
 
+interface RequestConfig {
+  timeout?: number;
+  retries?: number;
+  retryDelay?: number;
+}
+
+class ApiClient {
+  private baseURL: string;
+  private timeout: number;
+  private maxRetries: number;
+
+  constructor(baseURL: string = '', timeout: number = 10000) {
+    this.baseURL = baseURL;
+    this.timeout = timeout;
+    this.maxRetries = 3;
+  }
+
+  private async delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async request<T>(
+    url: string,
+    options: RequestInit & RequestConfig = {}
+  ): Promise<ApiResponse<T>> {
+    const { timeout = this.timeout, retries = this.maxRetries, retryDelay = 1000, ...fetchOptions } = options;
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const response = await fetch(`${this.baseURL}${url}`, {
+          ...fetchOptions,
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            ...fetchOptions.headers,
+          },
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return { data, status: response.status };
+      } catch (error) {
+        lastError = error as Error;
+        
+        if (attempt < retries) {
+          await this.delay(retryDelay * Math.pow(2, attempt)); // Exponential backoff
+        }
+      }
+    }
+
+    clearTimeout(timeoutId);
+    return {
+      error: lastError?.message || 'Request failed',
+      status: 0
+    };
+  }
+
+  async get<T>(url: string, config?: RequestConfig): Promise<ApiResponse<T>> {
+    return this.request<T>(url, { method: 'GET', ...config });
+  }
+
+  async post<T>(url: string, data?: any, config?: RequestConfig): Promise<ApiResponse<T>> {
+    return this.request<T>(url, {
+      method: 'POST',
+      body: JSON.stringify(data),
+      ...config
+    });
+  }
+
+  async put<T>(url: string, data?: any, config?: RequestConfig): Promise<ApiResponse<T>> {
+    return this.request<T>(url, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+      ...config
+    });
+  }
+
+  async delete<T>(url: string, config?: RequestConfig): Promise<ApiResponse<T>> {
+    return this.request<T>(url, { method: 'DELETE', ...config });
+  }
+}
+
+export const apiClient = new ApiClient();
+export { ApiClient };
+
 class ApiClient {
   private baseURL: string;
   private defaultTimeout: number;

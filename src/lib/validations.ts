@@ -1,4 +1,3 @@
-
 import { z } from 'zod';
 
 // Design element validation schemas
@@ -83,8 +82,41 @@ export function validateBlogComment(data: unknown) {
   return BlogCommentSchema.safeParse(data);
 }
 
-export function validateBlogPost(data: unknown) {
-  return BlogPostSchema.safeParse(data);
+export function validateBlogPost(data: any) {
+  try {
+    BlogPostSchema.parse(data);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Validation failed' };
+  }
+}
+
+const canvasOperationSchema = z.object({
+  x: z.number().min(0).optional(),
+  y: z.number().min(0).optional(),
+  width: z.number().min(1).max(5000).optional(),
+  height: z.number().min(1).max(5000).optional(),
+  rotation: z.number().min(-360).max(360).optional(),
+  opacity: z.number().min(0).max(1).optional(),
+  zIndex: z.number().min(0).max(1000).optional()
+});
+
+export function validateCanvasOperation(updates: any, canvasSize: { width: number; height: number }) {
+  try {
+    canvasOperationSchema.parse(updates);
+
+    // Additional canvas-specific validations
+    if (updates.x !== undefined && updates.x > canvasSize.width) {
+      throw new Error('X position exceeds canvas width');
+    }
+    if (updates.y !== undefined && updates.y > canvasSize.height) {
+      throw new Error('Y position exceeds canvas height');
+    }
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Canvas operation validation failed' };
+  }
 }
 
 export function validateFileUpload(data: unknown) {

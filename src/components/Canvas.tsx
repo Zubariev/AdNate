@@ -1,8 +1,8 @@
-
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { DesignElement } from '../types';
 import { validateDesignElement } from '../lib/validations';
 import { sanitizeDesignText } from '../lib/sanitization';
+import { validateCanvasOperation } from '../lib/validations';
 
 interface CanvasProps {
   elements: DesignElement[];
@@ -47,12 +47,12 @@ export const Canvas: React.FC<CanvasProps> = ({
   const handleMouseDown = useCallback((e: React.MouseEvent, elementId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     const element = elements.find(el => el.id === elementId);
     if (!element) return;
 
     onElementSelect(elementId);
-    
+
     setDragState({
       isDragging: true,
       elementId,
@@ -69,13 +69,13 @@ export const Canvas: React.FC<CanvasProps> = ({
 
     const deltaX = e.clientX - dragState.startPos.x;
     const deltaY = e.clientY - dragState.startPos.y;
-    
+
     const newX = dragState.elementStartPos.x + deltaX;
     const newY = dragState.elementStartPos.y + deltaY;
-    
+
     // Validate and constrain bounds
     const validatedPos = validateBounds(newX, newY, element.width, element.height);
-    
+
     onElementUpdate(dragState.elementId, {
       x: validatedPos.x,
       y: validatedPos.y,
@@ -107,7 +107,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     if (dragState.isDragging) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
-      
+
       return () => {
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
@@ -124,7 +124,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     }
 
     const isSelected = selectedElement === element.id;
-    
+
     const style: React.CSSProperties = {
       position: 'absolute',
       left: `${element.x}px`,
@@ -200,6 +200,45 @@ export const Canvas: React.FC<CanvasProps> = ({
     );
   };
 
+  // Security: Handle updates with validation and sanitization
+  const handleElementUpdateWrapper = useCallback((id: string, updates: Partial<DesignElement>) => {
+    // Validate canvas operation before applying
+    const validation = validateCanvasOperation(updates, canvasSize);
+    if (!validation.success) {
+      console.warn('Invalid canvas operation:', validation.error);
+      return;
+    }
+
+    // Sanitize and bound check updates
+    const sanitizedUpdates: Partial<DesignElement> = {};
+
+    if (updates.x !== undefined) {
+      sanitizedUpdates.x = Math.max(0, Math.min(updates.x, canvasSize.width - (elements.find(el => el.id === id)?.width || 0)));
+    }
+    if (updates.y !== undefined) {
+      sanitizedUpdates.y = Math.max(0, Math.min(updates.y, canvasSize.height - (elements.find(el => el.id === id)?.height || 0)));
+    }
+    if (updates.width !== undefined) {
+      sanitizedUpdates.width = Math.max(1, Math.min(updates.width, canvasSize.width));
+    }
+    if (updates.height !== undefined) {
+      sanitizedUpdates.height = Math.max(1, Math.min(updates.height, canvasSize.height));
+    }
+    if (updates.backgroundColor !== undefined) {
+      sanitizedUpdates.backgroundColor = sanitizeDesignText(updates.backgroundColor);
+    }
+    if (updates.color !== undefined) {
+      sanitizedUpdates.color = sanitizeDesignText(updates.color);
+    }
+    if (updates.content !== undefined && elements.find(el => el.id === id)?.type === 'text') {
+      sanitizedUpdates.content = sanitizeDesignText(updates.content);
+    }
+    // Add other properties as needed for sanitization and validation
+
+    onElementUpdate(id, sanitizedUpdates);
+  }, [canvasSize, elements, onElementUpdate]);
+
+
   return (
     <div
       ref={canvasRef}
@@ -214,8 +253,84 @@ export const Canvas: React.FC<CanvasProps> = ({
       }}
       onClick={handleCanvasClick}
     >
-      {elements.map(renderElement)}
-      
+      {elements.map(element => (
+        <div
+          key={element.id}
+          style={{
+            position: 'absolute',
+            left: `${element.x}px`,
+            top: `${element.y}px`,
+            width: `${element.width}px`,
+            height: `${element.height}px`,
+            transform: `rotate(${element.rotation || 0}deg)`,
+            zIndex: element.zIndex || 0,
+            cursor: 'move',
+            userSelect: 'none',
+            border: selectedElement === element.id ? '2px solid #007bff' : '1px solid transparent',
+            borderRadius: '2px',
+            backgroundColor: element.backgroundColor || 'transparent',
+            color: element.color || '#000000',
+            fontSize: `${element.fontSize || 16}px`,
+            fontFamily: element.fontFamily || 'Arial',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            wordBreak: 'break-word',
+          }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onElementSelect(element.id);
+            setDragState({
+              isDragging: true,
+              elementId: element.id,
+              startPos: { x: e.clientX, y: e.clientY },
+              elementStartPos: { x: element.x, y: element.y },
+            });
+          }}
+          onDoubleClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onElementDoubleClick(element.id);
+          }}
+          data-element-id={element.id}
+          data-element-type={element.type}
+        >
+          {element.type === 'text' && (
+            <div style={{ padding: '4px', textAlign: 'center' }}>
+              {sanitizeDesignText(element.content || '')}
+            </div>
+          )}
+          {element.type === 'image' && element.content && (
+            <img
+              src={element.content}
+              alt="Design element"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                pointerEvents: 'none',
+              }}
+              onError={(e) => {
+                console.warn('Failed to load image:', element.content);
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          )}
+          {element.type === 'shape' && (
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                backgroundColor: element.backgroundColor || '#cccccc',
+                border: element.borderWidth ? `${element.borderWidth}px solid ${element.borderColor || '#000000'}` : 'none',
+              }}
+            />
+          )}
+        </div>
+      ))}
+
       {/* Canvas overlay for debugging in development */}
       {process.env.NODE_ENV === 'development' && (
         <div className="absolute top-2 left-2 text-xs text-gray-500 pointer-events-none">
