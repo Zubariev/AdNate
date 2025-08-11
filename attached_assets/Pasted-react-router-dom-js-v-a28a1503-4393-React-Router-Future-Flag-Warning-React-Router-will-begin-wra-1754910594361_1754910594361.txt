@@ -1,0 +1,120 @@
+react-router-dom.js?v=a28a1503:4393 ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+warnOnce	@	react-router-dom.js?v=a28a1503:4393
+react-router-dom.js?v=a28a1503:4393 ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+warnOnce	@	react-router-dom.js?v=a28a1503:4393
+:5173/:1 [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) 
+home.tsx:90 Form state: 
+Object
+errors
+: 
+{}
+isValid
+: 
+false
+values
+: 
+{projectName: '', targetAudience: '', keyMessage: '', brandGuidelines: '', bannerSizes: '', …}
+[[Prototype]]
+: 
+Object
+home.tsx:90 Form state: 
+Object
+errors
+: 
+{}
+isValid
+: 
+false
+values
+: 
+{projectName: '', targetAudience: '', keyMessage: '', brandGuidelines: '', bannerSizes: '', …}
+[[Prototype]]
+: 
+Object
+home.tsx:90 Form state: 
+Object
+errors
+: 
+{}
+isValid
+: 
+false
+values
+: 
+{projectName: 'Educational Program', brandGuidelines: 'Warm and inviting, professional', bannerSizes: '728x90, 300x250', visualStyle: 'Clean and minimal', targetAudience: '', …}
+[[Prototype]]
+: 
+Object
+home.tsx:90 Form state: 
+Object
+errors
+: 
+{}
+isValid
+: 
+false
+values
+: 
+{projectName: 'Educational Program', brandGuidelines: 'Warm and inviting, professional', bannerSizes: '728x90, 300x250', visualStyle: 'Clean and minimal', targetAudience: '', …}
+[[Prototype]]
+: 
+Object
+home.tsx:90 Form state: 
+Object
+errors
+: 
+{}
+isValid
+: 
+false
+values
+: 
+{projectName: 'Educational Program', brandGuidelines: 'Warm and inviting, professional', bannerSizes: '728x90, 300x250', visualStyle: 'Clean and minimal', targetAudience: 'Young professionals (25-35)', …}
+[[Prototype]]
+: 
+Object
+home.tsx:229 Form submitted
+home.tsx:90 Form state: 
+Object
+errors
+: 
+{}
+isValid
+: 
+false
+values
+: 
+{projectName: 'Educational Program', brandGuidelines: 'Warm and inviting, professional', bannerSizes: '728x90, 300x250', visualStyle: 'Clean and minimal', targetAudience: 'Young professionals (25-35)', …}
+[[Prototype]]
+: 
+Object
+content.js:1 Uncaught (in promise) The message port closed before a response was received.
+home.tsx:90 Form state: 
+Object
+home.tsx:90 Form state: 
+Object
+home.tsx:229 Form submitted
+home.tsx:231 Form data: 
+Object
+home.tsx:90 Form state: 
+Object
+home.tsx:90 Form state: 
+Object
+home.tsx:99 Starting mutation with data: 
+Object
+queryClient.ts:15 Making POST request to http://localhost:5001/api/briefs 
+Object
+:5001/api/briefs:1 
+ Failed to load resource: net::ERR_CONNECTION_REFUSED
+queryClient.ts:34 API request failed: TypeError: Failed to fetch
+    at apiRequest (queryClient.ts:16:28)
+    at Object.mutationFn (home.tsx:101:32)
+apiRequest	@	queryClient.ts:34
+home.tsx:107 Mutation error: TypeError: Failed to fetch
+    at apiRequest (queryClient.ts:16:28)
+    at Object.mutationFn (home.tsx:101:32)
+mutationFn	@	home.tsx:107
+home.tsx:123 Mutation error in onError: TypeError: Failed to fetch
+    at apiRequest (queryClient.ts:16:28)
+    at Object.mutationFn (home.tsx:101:32)
+onError	@	home.tsx:123
