@@ -27,7 +27,7 @@
     "clsx": "^2.1.1",
     "cors": "^2.8.5",
     "date-fns": "^3.3.1",
-    "dotenv": "^16.4.7",
+    "dotenv": "^16.6.1",
     "drizzle-zod": "^0.7.0",
     "express": "^4.21.2",
     "html2canvas": "^1.4.1",
@@ -41,6 +41,8 @@
     "react-router-dom": "^6.22.3",
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2",
     "zod": "^3.24.2"
   },
   "devDependencies": {
@@ -48,7 +50,7 @@
     "@tailwindcss/typography": "^0.5.15",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
-    "@types/node": "^20.11.24",
+    "@types/node": "^20.19.10",
     "@types/react": "^18.2.56",
     "@types/react-dom": "^18.2.19",
     "@typescript-eslint/eslint-plugin": "^7.0.2",
@@ -71,5 +73,10 @@
     "compilerOptions": {
       "module": "commonjs"
     }
-  }
+  },
+  "description": "A modern, full-featured design editor and blog platform built with React, TypeScript, and Supabase. Create stunning graphics, banners, and designs with an intuitive drag-and-drop interface, while also managing a complete blog system.",
+  "main": "eslint.config.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }

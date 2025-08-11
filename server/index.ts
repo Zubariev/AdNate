@@ -83,7 +83,7 @@ app.use('/api/briefs', briefsRouter);
   }
 
   const PORT = process.env.PORT || 5000;
-  
+
   const startServer = async (port: number): Promise<void> => {
     try {
       await new Promise((resolve, reject) => {

@@ -9,9 +9,9 @@ async function throwIfResNotOk(res: Response) {
 
 export async function apiRequest(method: string, path: string, body?: any) {
   try {
-    const baseUrl = 'http://localhost:5001';
-    const fullUrl = `${baseUrl}${path}`;
-    
+    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://0.0.0.0:5000';
+    const fullUrl = `${API_BASE_URL}${path}`;
+
     console.log(`Making ${method} request to ${fullUrl}`, body);
     const response = await fetch(fullUrl, {
       method,

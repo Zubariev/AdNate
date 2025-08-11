@@ -41,7 +41,7 @@ export const insertBriefSchema = createInsertSchema(briefs).pick({
 export type InsertBrief = z.infer<typeof insertBriefSchema>;
 export type Brief = typeof briefs.$inferSelect;
 
-export const briefFormSchema = insertBriefSchema.extend({
+export const briefFormSchema = z.object({
   projectName: z.string().min(3, "Project name must be at least 3 characters"),
   targetAudience: z.string().min(5, "Target audience description required"),
   keyMessage: z.string().min(10, "Key message must be at least 10 characters"),
