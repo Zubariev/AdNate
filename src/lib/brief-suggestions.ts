@@ -1,0 +1,58 @@
+export const briefSuggestions = {
+  brandGuidelines: {
+    colors: [
+      "Vibrant and energetic",
+      "Soft and minimalistic",
+      "Bold and modern",
+      "Warm earth tones",
+      "Cool and professional",
+      "High contrast",
+    ],
+    typography: [
+      "Modern sans-serif",
+      "Classic serif",
+      "Playful display fonts",
+      "Clean and minimal",
+      "Bold headlines",
+    ],
+    style: [
+      "Minimalist",
+      "Corporate",
+      "Playful",
+      "Luxury",
+      "Tech-focused",
+      "Eco-friendly",
+    ],
+  },
+  targetAudience: [
+    "Young professionals (25-35)",
+    "Parents with children",
+    "Tech-savvy millennials",
+    "Business decision-makers",
+    "College students",
+    "Urban professionals",
+  ],
+  emotionalConnection: [
+    "Trust and reliability",
+    "Excitement and energy",
+    "Comfort and security",
+    "Innovation and progress",
+    "Luxury and exclusivity",
+    "Sustainability and care",
+  ],
+  visualStyle: [
+    "Clean and minimal",
+    "Bold and dynamic",
+    "Elegant and sophisticated",
+    "Modern and tech-forward",
+    "Organic and natural",
+    "Vibrant and playful",
+  ],
+  bannerSizes: [
+    "728x90 (Leaderboard)",
+    "300x250 (Medium Rectangle)",
+    "160x600 (Wide Skyscraper)",
+    "320x50 (Mobile Banner)",
+    "970x250 (Billboard)",
+  ],
+};
