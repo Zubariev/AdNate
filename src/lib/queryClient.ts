@@ -1,15 +1,8 @@
-import { QueryClient, QueryFunction } from "@tanstack/react-query";
+// Note: Keep this file minimal; shared fetch helper only.
 
-async function throwIfResNotOk(res: Response) {
-  if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
-  }
-}
-
-export async function apiRequest(method: string, path: string, body?: any) {
+export async function apiRequest(method: string, path: string, body?: unknown) {
   try {
-    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://0.0.0.0:5000';
+    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
     const fullUrl = `${API_BASE_URL}${path}`;
 
     console.log(`Making ${method} request to ${fullUrl}`, body);

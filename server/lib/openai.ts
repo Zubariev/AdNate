@@ -1,7 +1,12 @@
 import OpenAI from "openai";
 
-// the newest OpenAI model is "gpt-4o" which was released May 13, 2024
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+function getOpenAI(): OpenAI {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OpenAI API key is not configured');
+  }
+  return new OpenAI({ apiKey });
+}
 
 type BriefInput = {
   projectName?: string;
@@ -19,11 +24,6 @@ type BriefInput = {
 
 export async function generateConcepts(brief: BriefInput): Promise<any> {
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      console.error('OpenAI API key is missing');
-      throw new Error('OpenAI API key is not configured');
-    }
-
     console.log('OpenAI API Key exists:', !!process.env.OPENAI_API_KEY);
 
     console.log('Generating concepts for brief:', brief);
@@ -66,7 +66,7 @@ Please provide your response in JSON format with the following structure:
   "performanceMetrics": "string"
 }`;
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: completionPrompt }],
       response_format: { type: "json_object" }
@@ -136,7 +136,7 @@ Return your response in the following JSON structure:
 }`;
 
     console.log('Sending prompt to OpenAI');
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: conceptPrompt }],
       response_format: { type: "json_object" }
