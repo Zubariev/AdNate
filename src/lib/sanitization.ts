@@ -1,28 +1,24 @@
-import DOMPurify from 'dompurify';
+import DOMPurify, { type Config } from 'dompurify';
 
-// Configuration for different content types
-const BLOG_CONFIG = {
+// Configuration for different content types (typed to match DOMPurify)
+const BLOG_CONFIG: Config = {
   ALLOWED_TAGS: [
     'p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
     'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'img'
   ],
-  ALLOWED_ATTR: {
-    'a': ['href', 'title'],
-    'img': ['src', 'alt', 'title', 'width', 'height'],
-    '*': ['class']
-  },
+  ALLOWED_ATTR: ['href', 'title', 'src', 'alt', 'width', 'height', 'class'],
   ALLOW_DATA_ATTR: false,
 };
 
-const COMMENT_CONFIG = {
+const COMMENT_CONFIG: Config = {
   ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'code'],
-  ALLOWED_ATTR: {},
+  ALLOWED_ATTR: [],
   ALLOW_DATA_ATTR: false,
 };
 
-const STRICT_CONFIG = {
+const STRICT_CONFIG: Config = {
   ALLOWED_TAGS: [],
-  ALLOWED_ATTR: {},
+  ALLOWED_ATTR: [],
   ALLOW_DATA_ATTR: false,
   KEEP_CONTENT: true,
 };
@@ -32,9 +28,8 @@ const STRICT_CONFIG = {
  */
 export function sanitizeBlogContent(content: string): string {
   return DOMPurify.sanitize(content, {
-    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'img'],
-    ALLOWED_ATTR: ['href', 'src', 'alt', 'title'],
-    ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i
+    ...BLOG_CONFIG,
+    ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
   });
 }
 
@@ -61,12 +56,8 @@ export function sanitizeText(text: string): string {
  * Sanitize user input for design elements
  */
 export function sanitizeDesignText(text: string): string {
-  // For design elements, we want to strip HTML but keep the text
-  return DOMPurify.sanitize(text, {
-    ALLOWED_TAGS: [],
-    ALLOWED_ATTR: {},
-    KEEP_CONTENT: true,
-  });
+  // For design elements, strip HTML but keep the text
+  return DOMPurify.sanitize(text, STRICT_CONFIG);
 }
 
 /**

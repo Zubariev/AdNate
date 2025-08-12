@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useAuth } from "..//auth/AuthProvider";
 import { Button } from "..//ui/button";
 import { Textarea } from "..//ui/textarea";
-import { supabase } from "../../integrations/supabase/client";
+import { supabase } from "../../lib/supabase";
 import { toast } from "..//ui/use-toast";
 
 interface Comment {
