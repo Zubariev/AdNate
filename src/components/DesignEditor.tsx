@@ -1,3 +1,34 @@
+const handleSaveDesign = async () => {
+  try {
+    const user = await supabase.auth.getUser();
+    if (!user.data?.user) {
+      throw new Error('User not authenticated');
+    }
+
+    const designData = {
+      user_id: user.data.user.id,
+      name: designName || 'Untitled Design',
+      content: JSON.stringify(editorState),
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('designs')
+      .upsert(designData, { 
+        onConflict: 'id',
+        returning: true 
+      });
+
+    if (error) throw error;
+    
+    console.log('Design saved successfully:', data);
+    // Add success notification here if needed
+  } catch (error) {
+    console.error('Error saving design:', error);
+    // Add error notification here if needed
+  }
+}; 
+
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -128,7 +159,6 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
       width: type === 'text' ? Math.min(200, canvasSize.width) : Math.min(100, canvasSize.width),
       height: type === 'text' ? Math.min(50, canvasSize.height) : Math.min(100, canvasSize.height),
       rotation: 0,
-      opacity: 1,
       zIndex: elements.length,
     };
 
@@ -446,7 +476,7 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
               height: 200,
               x: canvasSize.width / 2 - 100,
               y: canvasSize.height / 2 - 100,
-            } as any);
+            });
             setShowImageGenerator(false);
           }}
         />
