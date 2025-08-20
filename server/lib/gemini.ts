@@ -1,11 +1,11 @@
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-function getOpenAI(): OpenAI {
-  const apiKey = process.env.OPENAI_API_KEY;
+function getGemini() {
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error('OpenAI API key is not configured');
+    throw new Error('Gemini API key is not configured');
   }
-  return new OpenAI({ apiKey });
+  return new GoogleGenerativeAI(apiKey);
 }
 
 type BriefInput = {
@@ -24,7 +24,7 @@ type BriefInput = {
 
 export async function generateConcepts(brief: BriefInput): Promise<any> {
   try {
-    console.log('OpenAI API Key exists:', !!process.env.OPENAI_API_KEY);
+    console.log('Gemini API Key exists:', !!process.env.GEMINI_API_KEY);
 
     console.log('Generating concepts for brief:', brief);
 
@@ -66,13 +66,21 @@ Please provide your response in JSON format with the following structure:
   "performanceMetrics": "string"
 }`;
 
-    const completion = await getOpenAI().chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: completionPrompt }],
-      response_format: { type: "json_object" }
-    });
+    const genAI = getGemini();
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const filledBrief = JSON.parse(completion.choices[0].message.content || "{}");
+    const completion = await model.generateContent([
+      { text: completionPrompt + "\n\nIMPORTANT: Return ONLY valid JSON, no other text or markdown formatting." }
+    ]);
+
+    const responseText = completion.response.text();
+    console.log('Raw Gemini response for brief completion:', responseText);
+    
+    // Clean the response to extract JSON
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    const cleanedResponse = jsonMatch ? jsonMatch[0] : responseText;
+    
+    const filledBrief = JSON.parse(cleanedResponse);
     console.log('Auto-filled brief:', filledBrief);
 
     // Now generate detailed concepts based on the complete brief
@@ -135,27 +143,31 @@ Return your response in the following JSON structure:
   }]
 }`;
 
-    console.log('Sending prompt to OpenAI');
-    const response = await getOpenAI().chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: conceptPrompt }],
-      response_format: { type: "json_object" }
-    });
+    console.log('Sending prompt to Gemini');
+    const conceptResponse = await model.generateContent([
+      { text: conceptPrompt + "\n\nIMPORTANT: Return ONLY valid JSON, no other text or markdown formatting." }
+    ]);
 
-    console.log('Received response from OpenAI');
-    const content = response.choices[0].message.content;
+    console.log('Received response from Gemini');
+    const content = conceptResponse.response.text();
     if (!content) {
-      throw new Error("Failed to generate concepts - no content received from OpenAI");
+      throw new Error("Failed to generate concepts - no content received from Gemini");
     }
 
-    const parsedContent = JSON.parse(content);
-    console.log('Parsed OpenAI response:', parsedContent);
+    console.log('Raw Gemini response for concepts:', content);
+    
+    // Clean the response to extract JSON
+    const conceptJsonMatch = content.match(/\{[\s\S]*\}/);
+    const cleanedConceptResponse = conceptJsonMatch ? conceptJsonMatch[0] : content;
+    
+    const parsedContent = JSON.parse(cleanedConceptResponse);
+    console.log('Parsed Gemini response:', parsedContent);
     return parsedContent;
   } catch (error) {
     console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
+      name: (error as Error).name,
+      message: (error as Error).message,
+      stack: (error as Error).stack
     });
     throw error;
   }

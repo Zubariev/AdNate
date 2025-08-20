@@ -1,27 +1,27 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Clipboard, Loader2, Share } from "lucide-react";
-import { useToast } from "../../hooks/use-toast";
-import { AssetLibrary } from "../../components/ui/asset-library";
-import { PreviewMode } from "../../components/ui/preview-mode";
-import { apiRequest } from "../../lib/queryClient";
+import { useToast } from "../../hooks/use-toast.js";
+import { AssetLibrary } from "../../components/ui/asset-library.js";
+
+import { apiRequest } from "../../lib/queryClient.js";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription
-} from "../../components/ui/card";
-import { Button } from "../../components/ui/button";
+} from "../../components/ui/card.js";
+import { Button } from "../../components/ui/button.js";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../components/ui/select";
+} from "../../components/ui/select.js";
 import {
   Form,
   FormControl,
@@ -29,26 +29,26 @@ import {
   FormItem,
   FormLabel,
   FormMessage
-} from "../../components/ui/form";
-import { Input } from "../../components/ui/input";
-import { Textarea } from "../../components/ui/textarea";
+} from "../../components/ui/form.js";
+import { Input } from "../../components/ui/input.js";
+import { Textarea } from "../../components/ui/textarea.js";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "../../components/ui/accordion";
+} from "../../components/ui/accordion.js";
 import * as z from 'zod'
-import { KeywordSuggestions } from "../../components/ui/keyword-suggestions";
-import { briefSuggestions } from "../../lib/brief-suggestions";
-import { industryTemplates } from "../../lib/industry-templates";
-import { briefFormSchema, type Brief, type Concept } from "../../shared/schema";
+import { KeywordSuggestions } from "../../components/ui/keyword-suggestions.js";
+import { briefSuggestions } from "../../lib/brief-suggestions.js";
+import { industryTemplates } from "../../lib/industry-templates.js";
+import { briefFormSchema, type Brief, type Concept } from "../../shared/schema.js";
 
 export default function Home() {
   const { toast } = useToast();
   const [selectedBriefId, setSelectedBriefId] = useState<number | null>(null);
   const [generatedConcepts, setGeneratedConcepts] = useState<Concept[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  // const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   // Query to fetch briefs
@@ -92,7 +92,7 @@ export default function Home() {
       errors: form.formState.errors,
       values: form.getValues()
     });
-  }, [form.formState]);
+  }, [form.formState, form]);
 
   const mutation = useMutation({
     mutationFn: async (formData: z.infer<typeof briefFormSchema>) => {
@@ -162,7 +162,7 @@ export default function Home() {
 
   if (isLoadingBriefs) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex justify-center items-center min-h-screen bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -170,7 +170,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen text-white">
-        <div className="flex items-center justify-between">
+        <div className="flex justify-between items-center">
           <div className="space-y-2">
             <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
               Creative Brief
@@ -179,7 +179,7 @@ export default function Home() {
               Generate concepts from your marketing requirements
             </p>
           </div>
-          <Card>
+          <Card className="text-blue-500 bg-clip-text to-pink-400 border-0 om-purple-400 bobg-gradient-to-r">
               <CardHeader>
                 <CardTitle>Brief Presets</CardTitle>
               </CardHeader>
@@ -190,7 +190,7 @@ export default function Home() {
                     form.reset(template);
                   }}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select industry" />
+                      <SelectValue placeholder="Industry" />
                     </SelectTrigger>
                     <SelectContent>
                       {Object.keys(industryTemplates).map(industry => (
@@ -203,7 +203,7 @@ export default function Home() {
 
                   <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder="Category" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Categories</SelectItem>
@@ -218,7 +218,7 @@ export default function Home() {
             </Card>
         </div>
 
-        <Card className="text-white border-0 bg-white/10 backdrop-blur-lg">
+        <Card className="text-white border-0 backdrop-blur-lg bg-white/10">
           <CardHeader>
           </CardHeader>
           <CardContent>
@@ -476,7 +476,7 @@ export default function Home() {
                 >
                   {mutation.isPending ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      <Loader2 className="mr-2 w-4 h-4 animate-spin" />
                       Generating...
                     </>
                   ) : (
@@ -488,106 +488,150 @@ export default function Home() {
           </CardContent>
         </Card>
 
-        <div className="space-y-6">
+        <div className="space-y-8">
           <AssetLibrary />
+          
+          {generatedConcepts.length > 0 && (
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+                Generated Concepts
+              </h2>
+              <p className="text-gray-300">
+                Detailed banner concepts with design rationale
+              </p>
+            </div>
+          )}
+          
           {generatedConcepts.map((concept, index) => (
-            <React.Fragment key={index}>
-              <PreviewMode 
-                concept={concept}
-                bannerSizes={form.getValues("bannerSizes").split(",").map(s => s.trim())}
-              />
-              <Card>
-              <CardHeader>
-                <CardTitle>{concept.title}</CardTitle>
-                <CardDescription>{concept.description}</CardDescription>
+            <Card key={index} className="backdrop-blur-sm border-purple-400/20 bg-white/5">
+              <CardHeader className="pb-4">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-1">
+                    <CardTitle className="text-xl text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-pink-300 text-gradient">
+                      {concept.title}
+                    </CardTitle>
+                    <CardDescription className="text-base text-gray-300">
+                      {concept.description}
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-2 items-center">
+                    <span className="px-3 py-1 text-xs font-medium text-purple-300 rounded-full bg-purple-400/20">
+                      Concept {index + 1}
+                    </span>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                <Accordion type="single" collapsible>
+                <Accordion type="multiple" className="w-full">
                   <AccordionItem value="elements">
                     <AccordionTrigger>Visual Elements</AccordionTrigger>
                     <AccordionContent>
-                      <div className="space-y-4">
-                        <div>
-                          <h4 className="font-medium">Background</h4>
-                          <p className="text-sm text-muted-foreground">{concept.elements.background}</p>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-3">
+                          <div>
+                            <h4 className="font-medium text-purple-400">Background</h4>
+                            <p className="text-sm text-muted-foreground">{concept.elements.background}</p>
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-purple-400">Graphics</h4>
+                            <p className="text-sm text-muted-foreground">{concept.elements.graphics}</p>
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-purple-400">Text Content</h4>
+                            <p className="text-sm text-muted-foreground">{concept.elements.text}</p>
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="font-medium">Graphics</h4>
-                          <p className="text-sm text-muted-foreground">{concept.elements.graphics}</p>
-                        </div>
-                        <div>
-                          <h4 className="font-medium">Text</h4>
-                          <p className="text-sm text-muted-foreground">{concept.elements.text}</p>
+                        <div className="space-y-3">
+                          <div>
+                            <h4 className="font-medium text-pink-400">Layout</h4>
+                            <p className="text-sm text-muted-foreground">{concept.elements.layout}</p>
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-pink-400">Typography</h4>
+                            <p className="text-sm text-muted-foreground">{concept.elements.typography}</p>
+                          </div>
+                          {concept.elements.animation && (
+                            <div>
+                              <h4 className="font-medium text-pink-400">Animation</h4>
+                              <p className="text-sm text-muted-foreground">{concept.elements.animation}</p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </AccordionContent>
                   </AccordionItem>
+                  
+                  <AccordionItem value="rationale">
+                    <AccordionTrigger>Design Rationale</AccordionTrigger>
+                    <AccordionContent>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-3">
+                          <div>
+                            <h4 className="font-medium text-blue-400">Target Audience Appeal</h4>
+                            <p className="text-sm text-muted-foreground">{concept.rationale.targetAudienceAppeal}</p>
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-blue-400">Brand Alignment</h4>
+                            <p className="text-sm text-muted-foreground">{concept.rationale.brandAlignment}</p>
+                          </div>
+                        </div>
+                        <div className="space-y-3">
+                          <div>
+                            <h4 className="font-medium text-green-400">Messaging Strategy</h4>
+                            <p className="text-sm text-muted-foreground">{concept.rationale.messagingStrategy}</p>
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-green-400">Visual Hierarchy</h4>
+                            <p className="text-sm text-muted-foreground">{concept.rationale.visualHierarchy}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
                   <AccordionItem value="prompts">
-                    <AccordionTrigger>Midjourney Prompts</AccordionTrigger>
+                    <AccordionTrigger>Description of the concept</AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-4">
                         {Object.entries(concept.midjourneyPrompts).map(([key, prompt]) => (
                           <div key={key} className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <h4 className="font-medium capitalize">{key}</h4>
+                            <div className="flex justify-between items-center">
+                              <h4 className="font-medium text-orange-400 capitalize">{key}</h4>
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => copyToClipboard(prompt)}
+                                className="hover:bg-purple-400/20"
                               >
                                 <Clipboard className="w-4 h-4" />
                               </Button>
                             </div>
-                            <p className="text-sm text-muted-foreground">{prompt}</p>
+                            <p className="p-3 font-mono text-sm rounded text-muted-foreground bg-slate-800/50">{prompt}</p>
                           </div>
                         ))}
                       </div>
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-4"
-                  onClick={() => selectedBriefId && shareMutation.mutate(selectedBriefId)}
-                  disabled={shareMutation.isPending || !selectedBriefId}
-                >
-                  {shareMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Share className="w-4 h-4 mr-2" />
-                  )}
-                  Share Brief
-                </Button>
+                <div className="flex justify-between items-center pt-4 mt-6 border-t border-purple-400/20">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-purple-300 border-purple-400/50 hover:bg-purple-400/20"
+                    onClick={() => selectedBriefId && shareMutation.mutate(selectedBriefId)}
+                    disabled={shareMutation.isPending || !selectedBriefId}
+                  >
+                    {shareMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Share className="mr-2 w-4 h-4" />
+                    )}
+                    Share Brief
+                  </Button>
+                </div>
               </CardContent>
             </Card>
-            </React.Fragment>
           ))}
-        </div>
-        
-        <div className="mt-8">
-          <div className="grid grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Save as Template</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  onClick={() => {
-                    const templates = JSON.parse(localStorage.getItem('briefTemplates') || '[]');
-                    templates.push(form.getValues());
-                    localStorage.setItem('briefTemplates', JSON.stringify(templates));
-                    toast({
-                      title: "Template Saved",
-                      description: "Your brief has been saved as a template"
-                    });
-                  }}
-                >
-                  Save Current Brief
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
         </div>
     </div>
   );

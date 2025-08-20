@@ -13,6 +13,7 @@ A modern, full-featured design editor and blog platform built with React, TypeSc
 - **Layer Management**: Complete layer control with drag-and-drop reordering
 - **Properties Panel**: Fine-tune colors, fonts, sizes, and positioning
 - **AI Image Generation**: Powered by Hugging Face for creative assets
+- **AI Brief Generation**: Google Gemini-powered concept generation from creative briefs
 - **Multiple Export Formats**: PNG, JPG, SVG with quality options
 - **Auto-save**: Never lose your work with automatic saving
 - **Version Control**: Track changes and rollback to previous versions
@@ -83,13 +84,26 @@ A modern, full-featured design editor and blog platform built with React, TypeSc
    ```
 
 3. **Environment Setup**
-   - Copy `.env.example` to `.env`
-   - Add your Supabase credentials:
+   - Create a `.env` file in the root directory
+   - Add your API credentials:
    ```env
+   # Supabase Configuration
    VITE_SUPABASE_URL=your_supabase_url
    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   
+   # AI Services
    VITE_HUGGINGFACE_API_KEY=your_huggingface_api_key
+   GEMINI_API_KEY=your_gemini_api_key
+   
+   # Server Configuration
+   PORT=5000
+   NODE_ENV=development
    ```
+   
+   **Getting API Keys:**
+   - **Supabase**: Create a project at [supabase.com](https://supabase.com)
+   - **Hugging Face**: Get API key from [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+   - **Google Gemini**: Get API key from [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) (required for AI-generated design concepts)
 
 4. **Database Setup**
    ```bash
@@ -113,6 +127,7 @@ This project is optimized for deployment on Replit:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY` 
    - `VITE_HUGGINGFACE_API_KEY`
+   - `GEMINI_API_KEY` (optional, for AI-generated design concepts)
 3. **Run the project** - It will automatically install dependencies and start
 
 ## 📁 Project Structure

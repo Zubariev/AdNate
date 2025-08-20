@@ -1,18 +1,21 @@
 import express, { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+// import { setupVite, serveStatic, log } from "./vite";
 import dotenv from 'dotenv';
 import cors from 'cors';
 import briefsRouter from './api/briefs';
 
-// Load environment variables
-dotenv.config();
+// Load environment variables from multiple locations
+dotenv.config({ path: '../.env.local' }); // Try .env.local in parent directory first
+dotenv.config({ path: '../.env' }); // Try .env in parent directory
+dotenv.config({ path: '.env.local' }); // Try .env.local in current directory
+dotenv.config(); // Try .env in current directory
 
 // Add environment check logging
 console.log('Environment check:', {
   NODE_ENV: process.env.NODE_ENV,
-  OPENAI_API_KEY: process.env.OPENAI_API_KEY ? 'Set' : 'Not set',
-  SERVER_PORT: process.env.PORT || 5000
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY ? 'Set' : 'Not set',
+  SERVER_PORT: process.env.PORT || 3001
 });
 
 const app = express();
@@ -70,7 +73,7 @@ app.use((req, res, next) => {
         logLine = logLine.slice(0, 79) + "…";
       }
 
-      log(logLine);
+      console.log(logLine);
     }
   });
 
@@ -89,29 +92,30 @@ app.use('/api/briefs', briefsRouter);
     res.status(status).json({ message });
   });
 
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
+  // Simplified for testing - removed Vite integration
+  // if (app.get("env") === "development") {
+  //   await setupVite(app, server);
+  // } else {
+  //   serveStatic(app);
+  // }
 
-  const PORT = process.env.PORT || 5000;
+  const PORT = parseInt(process.env.PORT || '3001', 10);
 
   const startServer = async (port: number): Promise<void> => {
     try {
       await new Promise((resolve, reject) => {
-        server.listen(port, "0.0.0.0", resolve)
+        server.listen(port, "0.0.0.0", () => resolve(undefined))
           .on('error', (error: NodeJS.ErrnoException) => {
             if (error.code === 'EADDRINUSE') {
-              log(`Port ${port} is in use, trying ${port + 1}`);
+              console.log(`Port ${port} is in use, trying ${port + 1}`);
               server.close();
-              startServer(port + 1).then(resolve).catch(reject);
+              startServer(port + 1).then(() => resolve(undefined)).catch(reject);
             } else {
               reject(error);
             }
           });
       });
-      log(`Server running on port ${port}`);
+      console.log(`Server running on port ${port}`);
     } catch (error) {
       console.error('Failed to start server:', error);
       process.exit(1);

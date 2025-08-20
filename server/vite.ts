@@ -1,10 +1,7 @@
 import express, { type Express } from "express";
 import fs from "fs";
-import path, { dirname } from "path";
-import { fileURLToPath } from "url";
+import path from "path";
 import { createServer as createViteServer, createLogger } from "vite";
-const __filename = fileURLToPath(new URL(import.meta.url));
-const __dirname = dirname(__filename);
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
@@ -28,7 +25,7 @@ export async function setupVite(app: Express, server: Server) {
     hmr: {
       server: server
     },
-    allowedHosts: 'all'
+    allowedHosts: ['localhost', '127.0.0.1', '0.0.0.0']
   };
 
   const vite = await createViteServer({
