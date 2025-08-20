@@ -104,7 +104,7 @@ app.use('/api/briefs', briefsRouter);
   const startServer = async (port: number): Promise<void> => {
     try {
       await new Promise((resolve, reject) => {
-        server.listen(port, "0.0.0.0", () => resolve(undefined))
+        server.listen(port, "127.0.0.1", () => resolve(undefined))
           .on('error', (error: NodeJS.ErrnoException) => {
             if (error.code === 'EADDRINUSE') {
               console.log(`Port ${port} is in use, trying ${port + 1}`);

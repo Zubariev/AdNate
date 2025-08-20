@@ -48,6 +48,7 @@ export default function Home() {
   const { toast } = useToast();
   const [selectedBriefId, setSelectedBriefId] = useState<number | null>(null);
   const [generatedConcepts, setGeneratedConcepts] = useState<Concept[]>([]);
+  const [selectedConceptIndex, setSelectedConceptIndex] = useState<number | null>(null);
   // const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
@@ -170,7 +171,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen text-white">
-        <div className="flex justify-between items-center">
+        <div className="flex-grow justify-between items-center">
           <div className="space-y-2">
             <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
               Creative Brief
@@ -226,12 +227,8 @@ export default function Home() {
               <form 
                 onSubmit={(e) => {
                   e.preventDefault();
-                  console.log('Form submitted');
-                  form.handleSubmit((data) => {
-                    console.log('Form data:', data);
-                    mutation.mutate(data);
-                  })(e);
-                }} 
+                  // Prevent any auto-submission - only allow manual button clicks
+                }}
                 className="space-y-6"
               >
                 <FormField
@@ -434,7 +431,7 @@ export default function Home() {
                   name="visualStyle"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Visual Style</FormLabel>
+                      <FormLabel>Ad Visual Style</FormLabel>
                       <FormControl className="text-white border-0 bg-white/10 placeholder:text-gray-400 focus-visible:ring-purple-400">
                         <Textarea
                           placeholder="Specific visual direction, references, and style preferences"
@@ -469,20 +466,7 @@ export default function Home() {
                   )}
                 />
 
-                <Button 
-                  type="submit" 
-                  disabled={mutation.isPending}
-                  className="bg-gradient-to-r from-purple-400 to-pink-400 hover:opacity-90"
-                >
-                  {mutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 w-4 h-4 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    'Generate Concepts'
-                  )}
-                </Button>
+
               </form>
             </Form>
           </CardContent>
@@ -491,23 +475,60 @@ export default function Home() {
         <div className="space-y-8">
           <AssetLibrary />
           
+          <div className="flex justify-center">
+            <Button 
+              type="button" 
+              disabled={mutation.isPending}
+              className="px-8 py-3 text-lg bg-gradient-to-r from-purple-400 to-pink-400 hover:opacity-90"
+              onClick={(e) => {
+                e.preventDefault();
+                console.log('Generate Concepts button clicked');
+                form.handleSubmit((data) => {
+                  console.log('Form data:', data);
+                  mutation.mutate(data);
+                })();
+              }}
+            >
+              {mutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 w-5 h-5 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                'Generate Concepts'
+              )}
+            </Button>
+          </div>
+          
           {generatedConcepts.length > 0 && (
             <div className="space-y-2">
               <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
                 Generated Concepts
               </h2>
               <p className="text-gray-300">
-                Detailed banner concepts with design rationale
+                Detailed banner concepts with design rationale. Select the one you like and click continue.
               </p>
             </div>
           )}
           
           {generatedConcepts.map((concept, index) => (
-            <Card key={index} className="backdrop-blur-sm border-purple-400/20 bg-white/5">
+            <Card 
+              key={index} 
+              className={`backdrop-blur-sm bg-white/5 cursor-pointer transition-all duration-200 ${
+                selectedConceptIndex === index 
+                  ? 'border-2 border-purple-400 shadow-lg shadow-purple-400/20' 
+                  : 'border-purple-400/20 hover:border-purple-400/40'
+              }`}
+              onClick={() => setSelectedConceptIndex(selectedConceptIndex === index ? null : index)}
+            >
               <CardHeader className="pb-4">
                 <div className="flex justify-between items-start">
                   <div className="space-y-1">
-                    <CardTitle className="text-xl text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-pink-300 text-gradient">
+                    <CardTitle className={`text-xl text-transparent bg-clip-text bg-gradient-to-r ${
+                      selectedConceptIndex === index 
+                        ? 'from-purple-200 to-pink-200' 
+                        : 'from-purple-300 to-pink-300'
+                    } text-gradient`}>
                       {concept.title}
                     </CardTitle>
                     <CardDescription className="text-base text-gray-300">
@@ -515,8 +536,15 @@ export default function Home() {
                     </CardDescription>
                   </div>
                   <div className="flex gap-2 items-center">
-                    <span className="px-3 py-1 text-xs font-medium text-purple-300 rounded-full bg-purple-400/20">
+                    <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                      selectedConceptIndex === index
+                        ? 'text-purple-100 bg-purple-500/40 border border-purple-400'
+                        : 'text-purple-300 bg-purple-400/20'
+                    }`}>
                       Concept {index + 1}
+                      {selectedConceptIndex === index && (
+                        <span className="ml-1 text-purple-200">✓</span>
+                      )}
                     </span>
                   </div>
                 </div>

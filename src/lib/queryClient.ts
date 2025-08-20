@@ -2,7 +2,7 @@
 
 export async function apiRequest(method: string, path: string, body?: unknown) {
   try {
-    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3001';
     const fullUrl = `${API_BASE_URL}${path}`;
 
     console.log(`Making ${method} request to ${fullUrl}`, body);
