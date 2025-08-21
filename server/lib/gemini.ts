@@ -29,42 +29,46 @@ export async function generateConcepts(brief: BriefInput): Promise<any> {
     console.log('Generating concepts for brief:', brief);
 
     // First, let's auto-fill any missing fields
-    const completionPrompt = `As an expert marketing strategist, please analyze the following brief and fill in any missing or incomplete information with appropriate, professional suggestions based on the provided context. Also expand and enhance any minimal information provided.
+    const completionPrompt = `As a veteran Marketing Director with 15+ years at Ogilvy and WPP (having managed $200M+ in campaigns), analyze this brief through the lens of a client who *doesn't know what they don't know*. Your mission: Transform vague inputs into a contractor-ready brief using **real-world agency protocols**. 
 
-Brief details provided:
-${Object.entries(brief)
-  .map(([key, value]) => `${key}: ${value || 'MISSING'}`)
-  .join('\n')}
-
-Required sections to fill and enhance:
-1. Project Name: Clear, specific project identifier
-2. Target Audience: Detailed demographic and psychographic profile
-3. Key Message: Main message with supporting points
-4. Brand Guidelines: Comprehensive color, tone, and style requirements
-5. Banner Sizes: Required dimensions and specifications
-6. Brand Context: Brand's background, values, market position
-7. Objective: Specific, measurable campaign goals
-8. Consumer Journey: Where this fits in the customer journey
-9. Emotional Connection: Desired emotional response and rationale
-10. Visual Style: Detailed visual direction and references
-11. Performance Metrics: Success measurement criteria
-
-For each section, provide detailed, professional marketing content that aligns with industry best practices.
-
-Please provide your response in JSON format with the following structure:
-{
-  "projectName": "string",
-  "targetAudience": "string",
-  "keyMessage": "string",
-  "brandGuidelines": "string",
-  "bannerSizes": "string",
-  "brandContext": "string",
-  "objective": "string",
-  "consumerJourney": "string",
-  "emotionalConnection": "string",
-  "visualStyle": "string",
-  "performanceMetrics": "string"
-}`;
+    **Critical Rules for Enhancement:**
+    1. **Diagnose amateur traps** (e.g., "I want more sales" → convert to SMART KPIs with industry benchmarks)
+    2. **Inject business context** missing in inputs (e.g., "eco-friendly product" → "For DTC skincare, 'eco-friendly' claims require 3rd-party certifications to avoid greenwashing penalties per FTC 2023 guidelines")
+    3. **Apply psychological frameworks** (e.g., "emotional connection" → "Leverage loss aversion: 'Join 12,347 customers protecting their skin before summer damage' (proven 22% higher conversion vs generic 'radiant skin')")
+    4. **Anticipate contractor pain points** (e.g., if banner sizes lack specs: "Added 1.5x safety margins for mobile thumb zones per Google UX guidelines")
+    5. **Cite real campaign data** (e.g., "For Gen Z, 'authenticity' requires UGC elements—campaigns with real customer photos see 3.2x ROAS (Meta 2024)")
+    
+    **User Context Analysis:**
+    - If inputs are vague: "This reads like a first-time founder. They likely confuse 'brand guidelines' with 'I like blue'."
+    - If objectives lack metrics: "Amateur trap: 'more sales' without timeframe/baseline. Must fix."
+    - If visual style is "modern": "Danger zone—contractors will waste 3 revisions guessing. Need concrete references."
+    
+    **Brief Enhancement Protocol:**
+    For **EACH** section below, provide:
+    - **Professional Translation**: Rewrite amateur input into agency-ready language
+    - **Business Rationale**: "Why this matters to your P&L" (with data)
+    - **Contractor Directive**: "What to tell your agency to prevent $50k revisions"
+    - **Red Flag Alert**: "If you skip this, creatives will fail because..."
+    
+    **Brief details provided:**
+    ${Object.entries(brief)
+      .map(([key, value]) => `${key}: ${value || 'MISSING'}`)
+      .join('\n')}
+    
+    **Required Output Structure (JSON):**
+    {
+      "projectName": "string // [Professional Translation] + [Red Flag Alert]",
+      "targetAudience": "string // [Demographic/psychographic deep dive] + [Business Rationale: 'Why this audience?'] + [Contractor Directive: 'Specify: Age 28-35, NOT 'young people'']",
+      "keyMessage": "string // [Message architecture: Core + Proof Point + CTA] + [Red Flag Alert: 'Avoid adjectives like "best"—FTC requires substantiation']",
+      "brandGuidelines": "string // [Hex codes + typography + 'DOs/DON'Ts for contractors'] + [Business Rationale: 'Inconsistent colors cost brands 23% recognition (Forrester)']",
+      "bannerSizes": "string // [Sizes + technical specs: e.g., '300x250: 1.5x safety margins, max 3 text lines for mobile'] + [Contractor Directive: 'Require .psd layers for revision efficiency']",
+      "brandContext": "string // [Positioning statement: "For [X], [Brand] is the [Y] that [Z]"] + [Red Flag Alert: 'Missing context = generic creatives. Example: "We're not 'another skincare brand'—we're the only lab-validated Ayurvedic brand for acne-prone skin"']",
+      "objective": "string // [SMART goal: "Increase CTR from 1.2% → 2.5% in 90 days (industry avg: 1.8% per Google)"] + [Business Rationale: 'CTR <1.8% wastes $3.20/click (WordStream 2024)']",
+      "consumerJourney": "string // [Stage + behavioral trigger: "Consideration phase: Users comparing ingredients on Amazon"] + [Contractor Directive: 'Show product IN USE—not just packaging']",
+      "emotionalConnection": "string // [Psychological lever: "Anxiety reduction via 'dermatologist-approved' badges (triggers safety need)"] + [Business Rationale: 'Emotion-driven ads get 2x shareability (Harvard Business Review)']",
+      "visualStyle": "string // [Concrete references: "Cottagecore meets Biopunk (see Aesthetics Wiki) + Kodachrome film grain"] + [Red Flag Alert: 'Vague terms like "modern" cause 68% revision rate (AdWeek)']",
+      "performanceMetrics": "string // [Primary + guardrail metrics: "Primary: ROAS >3.0 | Guardrail: Bounce rate <45%"] + [Contractor Directive: 'Track UTM parameters: utm_campaign=summer2024_serum']"
+    }`;
 
     const genAI = getGemini();
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
