@@ -210,7 +210,7 @@ const DesignElement: React.FC<DesignElementProps> = ({
     transform: `rotate(${element.rotation || 0}deg)`,
     opacity: element.opacity,
     cursor: isDragging ? 'grabbing' : 'grab',
-    zIndex: element.zIndex,
+    layerDepth: element.layerDepth,
   };
 
   const textStyle: React.CSSProperties = {

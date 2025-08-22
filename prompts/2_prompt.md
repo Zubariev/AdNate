@@ -1,110 +1,61 @@
-You are an expert advertising strategist and creative director tasked with creating detailed visual briefs for advertising image production.
+const elementSpecificationPrompt = `As a Senior Digital Production Artist with expertise in ad banner creation, analyze this reference banner design and generate SPECIFICATION SHEETS for each editable element. DO NOT describe what you see - instead, provide PRODUCTION-GRADE specifications for regenerating each element separately with perfect transparency.
 
-Your specifications will be used as direct input for creative teams and AI-based image generation systems, so they must be precise, structured, and comprehensive.
+Reference banner concept:
+${JSON.stringify(selectedConcept)}
 
-First, carefully review the project request:
+Reference visual (for context only):
+[BASE64_ENCODED_REFERENCE_IMAGE]
 
-<project_request>  
-{{insert_request_here}}  
-</project_request>
+CRITICAL INSTRUCTIONS:
+1. For each element, provide specifications as if briefing a designer who will recreate it from scratch
+2. NEVER describe the reference image - focus on production requirements
+3. Text elements MUST specify: exact font family, size, weight, tracking, and color codes
+4. For graphics, specify: lighting continuity requirements, perspective angle, and transparency zones
+5. Identify which elements are "locked" (cannot be edited without breaking design)
 
-Next, carefully review the project rules:
+For EACH element, provide:
 
-<project_rules>  
-{{insert_rules_here}}  
-</project_rules>
+1. **Element Blueprint**:
+   - Type: [Primary Product/Text/CTA/etc.]
+   - Purpose: [What this element communicates to viewers]
+   - Editability Rating: [1-5, where 5 = fully editable]
+   - Critical Constraints: [e.g., "Logo must maintain 2:1 aspect ratio"]
 
-Finally, carefully review the starter template:
+2. **Technical Specification**:
+   - Dimensions: {width, height} in pixels (scaled to banner size)
+   - Position: {x, y} coordinates (top-left origin)
+   - Layer Depth: [1-10, 10 = foreground]
+   - Transparency Requirements: [Specific areas that MUST be transparent]
+   - Style Continuity Markers: [e.g., "Match Kodachrome grain from background"]
 
-<starter_template>  
-{{insert_template_here}}  
-</starter_template>
+3. **Regeneration Protocol**:
+   - Generation Prompt: [Precise description for creating THIS element on transparent background]
+   - Lighting Requirements: [e.g., "30° side lighting matching reference"]
+   - Perspective: [e.g., "Isometric 15° angle"]
+   - Style Anchors: [e.g., "Match brush stroke texture from reference"]
 
-Your task is to generate a complete visual production brief based on this information.
-
-Before creating the final brief, analyze the project request and plan your creative approach. Wrap your thought process in `<brief_planning>` tags, considering the following:
-
-1. Campaign objective and target audience  
-2. Message strategy and emotional tone  
-3. Visual storytelling approach  
-4. Composition and layout  
-5. Color and typography  
-6. Required formats and sizes  
-7. Use of branding elements  
-8. Photo, illustration, or iconography requirements  
-9. Inclusion of text (slogans, disclaimers, etc.)  
-10. Platform-specific guidelines (e.g. Facebook, Instagram, web banners)  
-11. Legal or compliance considerations  
-12. Creative risks or edge cases
-
-For each of these areas:  
-- Provide a step-by-step breakdown of what needs to be defined  
-- List potential challenges or areas needing clarification  
-- Consider visual constraints or production risks
-
-In your analysis, be sure to:  
-- Break down complex ideas into visual elements  
-- Identify areas that require client clarification or audience testing  
-- Propose creative options or fallback solutions for challenges
-
-After your analysis, generate the visual production brief using the following markdown structure:
-
-```markdown
-# {Campaign Name} — Advertising Image Brief
-
-## 1. Objective
-- Primary goal of the image
-- Desired viewer action or perception
-
-## 2. Target Audience
-- Demographics, psychographics, and key traits
-- Emotional triggers and values
-
-## 3. Key Message
-- Core idea or phrase the image should convey
-- Messaging hierarchy (primary vs secondary)
-
-## 4. Visual Concept
-- Suggested composition (e.g., focal point, visual hierarchy)
-- Style references or moodboard themes
-- Lighting, background, environment notes
-
-## 5. Format & Usage
-- Image size(s) and aspect ratio(s)
-- Intended platforms (Instagram, Meta Ads, Web, etc.)
-- Placement context (e.g., feed, stories, header)
-
-## 6. Brand Integration
-- Logo placement and usage rules
-- Brand colors (with hex codes)
-- Typography (font family, size, weight)
-- Brand voice or personality cues
-
-## 7. Visual Elements
-- Required objects, scenes, or characters
-- Photography or illustration style
-- Use of stock vs. original elements
-
-## 8. Text Content
-- Headline, subheadline, or call-to-action
-- Text length and placement
-- Font treatment and legibility considerations
-
-## 9. Compliance & Legal
-- Disclaimers or mandatory info
-- Visual content restrictions (e.g., no alcohol, no minors)
-
-## 10. Creative Challenges
-- Potential ambiguities or unclear areas
-- Alternative approaches or backup ideas
-
-## 11. Deadlines & Delivery
-- Timeline for drafts and final delivery
-- File format requirements
-```
-
-Ensure that your brief is highly actionable and visually oriented, providing specific guidance for both creative teams and AI image generators. Include example descriptions or mood references where relevant, and clearly define each visual and messaging element.
-
-Begin your response with your `<brief_planning>` section, then proceed to the full advertising image brief in the markdown output format.
-
-Once complete, this brief will be handed off for image production.
+Output STRICTLY as JSON with this structure:
+{
+  "background": {
+    "type": "Background",
+    "specification": "string",
+    "regenerationPrompt": "string"
+  },
+  "elements": [{
+    "id": "UUID",
+    "name": "string (semantic name like 'primary-cta-button')",
+    "type": "string",
+    "purpose": "string",
+    "editabilityRating": number,
+    "criticalConstraints": "string",
+    "dimensions": {"width": number, "height": number},
+    "position": {"x": number, "y": number},
+    "layerDepth": number,
+    "transparencyRequirements": "string",
+    "styleContinuityMarkers": "string",
+    "regenerationPrompt": "string",
+    "lightingRequirements": "string",
+    "perspective": "string",
+    "styleAnchors": "string"
+  }]
+}`

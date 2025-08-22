@@ -11,7 +11,7 @@ interface DesignElement {
   height: number;
   content?: string;
   style?: Record<string, any>;
-  zIndex: number;
+  layerDepth: number;
 }
 
 interface DesignState {
@@ -119,7 +119,7 @@ export const useDesignStore = create<DesignState & DesignActions>()(
         set({
           elements: reorderedElements.map((el, index) => ({
             ...el,
-            zIndex: index,
+            layerDepth: index,
           })),
           isDirty: true,
         });

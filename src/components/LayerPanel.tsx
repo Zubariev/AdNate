@@ -70,14 +70,14 @@ const LayerPanel: React.FC<LayerPanelProps> = ({
   const moveToFront = (element: Element) => {
     onUpdateElement({
       ...element,
-      zIndex: Math.max(...elements.map(e => e.zIndex)) + 1,
+      layerDepth: Math.max(...elements.map(e => e.layerDepth)) + 1,
     });
   };
 
   const moveToBack = (element: Element) => {
     onUpdateElement({
       ...element,
-      zIndex: Math.min(...elements.map(e => e.zIndex)) - 1,
+      layerDepth: Math.min(...elements.map(e => e.layerDepth)) - 1,
     });
   };
 
@@ -88,7 +88,7 @@ const LayerPanel: React.FC<LayerPanelProps> = ({
       </div>
       <div className="space-y-1">
         {[...elements]
-          .sort((a, b) => b.zIndex - a.zIndex)
+          .sort((a, b) => b.layerDepth - a.layerDepth)
           .map((element, index) => (
             <div
               key={element.id}

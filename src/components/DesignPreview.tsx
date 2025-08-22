@@ -45,7 +45,7 @@ const DesignPreview: React.FC<DesignPreviewProps> = ({ elements, width, height }
               height: element.height,
               transform: `rotate(${element.rotation}deg)`,
               opacity: element.opacity,
-              zIndex: element.zIndex,
+              layerDepth: element.layerDepth,
               color: element.color,
               backgroundColor: element.type === 'text' ? 'transparent' : element.backgroundColor,
               fontSize: `${element.fontSize}px`,

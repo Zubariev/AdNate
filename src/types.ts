@@ -47,7 +47,7 @@ export interface Element {
   backgroundColor: string;
   opacity: number;
   shapeType?: ShapeType;
-  zIndex: number;
+  layerDepth: number;
   locked?: boolean;
   isBold?: boolean;
   isItalic?: boolean;

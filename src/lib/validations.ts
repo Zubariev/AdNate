@@ -9,7 +9,7 @@ export const DesignElementSchema = z.object({
   width: z.number().min(1).max(5000),
   height: z.number().min(1).max(5000),
   rotation: z.number().min(-360).max(360),
-  zIndex: z.number().min(0),
+  layerDepth: z.number().min(0),
   content: z.string().max(1000).optional(),
   fontSize: z.number().min(8).max(200).optional(),
   fontFamily: z.string().max(100).optional(),
@@ -98,7 +98,7 @@ const canvasOperationSchema = z.object({
   height: z.number().min(1).max(5000).optional(),
   rotation: z.number().min(-360).max(360).optional(),
   opacity: z.number().min(0).max(1).optional(),
-  zIndex: z.number().min(0).max(1000).optional()
+  layerDepth: z.number().min(0).max(1000).optional()
 });
 
 export function validateCanvasOperation(updates: any, canvasSize: { width: number; height: number }) {

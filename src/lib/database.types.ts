@@ -31,7 +31,7 @@ export interface Database {
               backgroundColor?: string;
               opacity: number;
               shapeType?: string;
-              zIndex: number;
+              layerDepth: number;
               locked?: boolean;
               isBold?: boolean;
               isItalic?: boolean;
@@ -65,7 +65,7 @@ export interface Database {
               backgroundColor?: string;
               opacity: number;
               shapeType?: string;
-              zIndex: number;
+              layerDepth: number;
               locked?: boolean;
               isBold?: boolean;
               isItalic?: boolean;
@@ -97,7 +97,7 @@ export interface Database {
               backgroundColor?: string;
               opacity: number;
               shapeType?: string;
-              zIndex: number;
+              layerDepth: number;
               locked?: boolean;
               isBold?: boolean;
               isItalic?: boolean;

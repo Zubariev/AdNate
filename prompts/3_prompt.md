@@ -13,7 +13,7 @@ Each element must be described as a separate, atomic visual item—such as a sha
   "color": "#000000",
   "width": 200,
   "height": 200,
-  "zIndex": 1,
+  "layerDepth": 1,
   "opacity": 1,
   "rotation": 0,
   "backgroundColor": "#ffffff",
@@ -55,7 +55,7 @@ After reviewing these inputs, your task is to create a **comprehensive, structur
 1. Start with setting up the overall canvas size and metadata.
 2. Plan each element (e.g. background shapes, branding icons, buttons, main subject, text overlays) one at a time.
 3. Ensure every element is output-ready using the JSON format described above.
-4. Maintain clear placement (`x`, `y`) and `zIndex` values to ensure correct layer order.
+4. Maintain clear placement (`x`, `y`) and `layerDepth` values to ensure correct layer order.
 5. Use logical names and values for fields like `shapeType`, `iconName`, and `fontFamily`.
 6. Account for design principles such as visual hierarchy, balance, brand alignment, and readability.
 7. Include mobile-safe margins and platform-specific safe zones where relevant.
@@ -81,7 +81,7 @@ Present your plan using this markdown format, where each step produces a new des
       "color": "#000000",
       "width": 200,
       "height": 200,
-      "zIndex": 0,
+      "layerDepth": 0,
       "opacity": 1,
       "rotation": 0,
       "shapeType": "square",

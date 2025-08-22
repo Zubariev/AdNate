@@ -62,7 +62,7 @@ interface DesignElement {
   backgroundColor?: string;
   opacity: number;
   shapeType?: string;
-  zIndex: number;
+  layerDepth: number;
   locked?: boolean;
   isBold?: boolean;
   isItalic?: boolean;
@@ -159,7 +159,7 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
       width: type === 'text' ? Math.min(200, canvasSize.width) : Math.min(100, canvasSize.width),
       height: type === 'text' ? Math.min(50, canvasSize.height) : Math.min(100, canvasSize.height),
       rotation: 0,
-      zIndex: elements.length,
+      layerDepth: elements.length,
     };
 
     if (type === 'text') {
@@ -242,7 +242,7 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
         id: crypto.randomUUID(), // Use crypto.randomUUID for unique IDs
         x: elementToDuplicate.x + 20,
         y: elementToDuplicate.y + 20,
-        zIndex: elements.length,
+        layerDepth: elements.length,
       };
       // Validate the duplicated element before adding
       const validation = validateDesignElement(newElement);

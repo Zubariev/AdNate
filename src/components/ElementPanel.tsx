@@ -91,7 +91,7 @@ const ElementPanel: React.FC<ElementPanelProps> = ({ onAddElement }) => {
         fontFamily: 'Arial',
         rotation: 0,
         opacity: 1,
-        zIndex: 1,
+        layerDepth: 1,
         isBold: false,
         isItalic: false
       });
@@ -106,7 +106,7 @@ const ElementPanel: React.FC<ElementPanelProps> = ({ onAddElement }) => {
       width: 200,
       height: 200,
       rotation: 0,
-      zIndex: 1,
+      layerDepth: 1,
       opacity: 1,
       color: '#000000',
       backgroundColor: '#ffffff',
@@ -139,7 +139,7 @@ const ElementPanel: React.FC<ElementPanelProps> = ({ onAddElement }) => {
         content: e.target?.result as string,
         rotation: 0,
         opacity: 1,
-        zIndex: 1
+        layerDepth: 1
       });
     };
     reader.readAsDataURL(file);
