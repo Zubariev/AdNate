@@ -19,3 +19,37 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
     storageKey: 'design-studio-storage-key',
   },
 });
+
+export async function insertConcept(postId: string, concept: JSON) {
+  try {
+    const { data, error } = await supabase.rpc('insert_concept', {
+      post_id: postId,
+      concept: concept,
+    });
+
+  if (error) {
+    console.error('Error inserting concept:', error);
+  }
+
+  return data;
+  } catch (error) {
+    console.error('Error inserting concept:', error);
+  }
+}
+
+export async function insertBrief(postId: string, brief: JSON) {
+  try {
+    const { data, error } = await supabase.rpc('insert_brief', {
+      post_id: postId,
+      brief: brief,
+    });
+
+    if (error) {
+      console.error('Error inserting brief:', error);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error inserting brief:', error);
+  }
+}

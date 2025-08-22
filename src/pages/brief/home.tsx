@@ -5,7 +5,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Clipboard, Loader2, Share } from "lucide-react";
 import { useToast } from "../../hooks/use-toast.js";
 import { AssetLibrary } from "../../components/ui/asset-library.js";
-
+import { insertConcept } from "../../lib/supabase.js";
+import { insertBrief } from "../../lib/supabase.js";
 import { apiRequest } from "../../lib/queryClient.js";
 import {
   Card,
@@ -658,6 +659,9 @@ export default function Home() {
                   </Button>
                 </div>
               </CardContent>
+              <Button onClick={() => insertConcept(selectedBriefId, concept), insertBrief(selectedBriefId, brief)}>
+                Save and Continue
+              </Button>
             </Card>
           ))}
         </div>
