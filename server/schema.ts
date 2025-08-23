@@ -1,9 +1,10 @@
-import { pgTable, text, serial, jsonb, timestamp, boolean } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
+import { pgTable, text, uuid, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm"; // Import sql
 import { z } from "zod";
+import { createInsertSchema } from "drizzle-zod";
 
 export const briefs = pgTable("briefs", {
-  id: serial("id").primaryKey(),
+  id: uuid("id").primaryKey().defaultRandom(), // Changed to uuid and added defaultRandom()
   projectName: text("project_name").notNull(),
   targetAudience: text("target_audience").notNull(),
   keyMessage: text("key_message").notNull(),
@@ -15,10 +16,21 @@ export const briefs = pgTable("briefs", {
   emotionalConnection: text("emotional_connection"),
   visualStyle: text("visual_style"),
   performanceMetrics: text("performance_metrics"),
-  shareId: text("share_id"),
+  shareId: text("share_id").default(sql`gen_random_uuid()`).notNull().unique(), // Changed to use UUID and make it unique
   isPublic: boolean("is_public").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
-  concepts: jsonb("concepts").notNull()
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const concepts = pgTable("concepts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  briefId: uuid("brief_id").notNull().references(() => briefs.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description").default(''), // Make optional with default
+  elements: jsonb("elements").default({}), // Make optional with default
+  midjourneyPrompts: jsonb("midjourney_prompts").default({}), // Make optional with default
+  rationale: jsonb("rationale").default({}), // Make optional with default
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const insertBriefSchema = createInsertSchema(briefs).pick({
@@ -35,11 +47,21 @@ export const insertBriefSchema = createInsertSchema(briefs).pick({
   performanceMetrics: true,
   shareId: true,
   isPublic: true,
-  concepts: true
+});
+
+export const insertConceptSchema = createInsertSchema(concepts).pick({
+  briefId: true,
+  title: true,
+  description: true,
+  elements: true,
+  midjourneyPrompts: true,
+  rationale: true,
 });
 
 export type InsertBrief = z.infer<typeof insertBriefSchema>;
-export type Brief = typeof briefs.$inferSelect;
+export type Brief = typeof briefs.$inferSelect & { concepts?: Concept[] }; // Add optional concepts array
+export type InsertConcept = z.infer<typeof insertConceptSchema>;
+export type Concept = typeof concepts.$inferSelect;
 
 export const briefFormSchema = z.object({
   projectName: z.string().min(1),
@@ -58,7 +80,7 @@ export const briefFormSchema = z.object({
 
 export type BriefFormData = z.infer<typeof briefFormSchema>;
 
-export type Concept = {
+export type RawConcept = {
   title: string;
   description: string;
   elements: {

@@ -1,24 +1,24 @@
 import express, { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 // import { setupVite, serveStatic, log } from "./vite";
-import dotenv from 'dotenv';
-import cors from 'cors';
-import briefsRouter from './api/briefs';
-
-// Load environment variables from multiple locations
-dotenv.config({ path: '../.env.local' }); // Try .env.local in parent directory first
-dotenv.config({ path: '../.env' }); // Try .env in parent directory
-dotenv.config({ path: '.env.local' }); // Try .env.local in current directory
-dotenv.config(); // Try .env in current directory
+import * as dotenv from 'dotenv';
+// Load environment variables from the project root's .env file
+dotenv.config({ path: '../.env' });
 
 // Add environment check logging
 console.log('Environment check:', {
   NODE_ENV: process.env.NODE_ENV,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY ? 'Set' : 'Not set',
-  SERVER_PORT: process.env.PORT || 3001
+  SERVER_PORT: process.env.PORT || 3001,
+  VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL ? 'Set' : 'Not set',
+  VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Not set',
+  DATABASE_URL: process.env.DATABASE_URL ? 'Set' : 'Not set'
 });
 
 const app = express();
+import { initializeDbAndSupabase } from "./db.js";
+
+initializeDbAndSupabase(process.env.DATABASE_URL, process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
 
 // Configure CORS before any routes
 app.use((req, res, next) => {
@@ -53,13 +53,13 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+  let capturedJsonResponse: unknown = undefined;
 
   const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
+  res.json = function (this: Response, bodyJson: unknown) {
     capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
+    return originalResJson.apply(this, [bodyJson]);
+  } as typeof originalResJson;
 
   res.on("finish", () => {
     const duration = Date.now() - start;
@@ -80,14 +80,15 @@ app.use((req, res, next) => {
   next();
 });
 
+import briefsRouter from './api/briefs'; // Moved to here after dotenv.config()
 // Mount the briefs router
 app.use('/api/briefs', briefsRouter);
 
 (async () => {
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
+  app.use((err: Error, _req: Request, res: Response) => { // Removed _next as it's not used
+    const status = (err as { status?: number, statusCode?: number }).status || (err as { status?: number, statusCode?: number }).statusCode || 500;
     const message = err.message || "Internal Server Error";
     res.status(status).json({ message });
   });

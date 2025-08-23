@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clipboard, Loader2, Share } from "lucide-react";
 import { useToast } from "../../hooks/use-toast.js";
 import { AssetLibrary } from "../../components/ui/asset-library.js";
-import { insertConcept } from "../../lib/supabase.js";
-import { insertBrief } from "../../lib/supabase.js";
 import { apiRequest } from "../../lib/queryClient.js";
 import {
   Card,
@@ -47,11 +45,14 @@ import { briefFormSchema, type Brief, type Concept } from "../../shared/schema.j
 
 export default function Home() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [selectedBriefId, setSelectedBriefId] = useState<number | null>(null);
   const [generatedConcepts, setGeneratedConcepts] = useState<Concept[]>([]);
   const [selectedConceptIndex, setSelectedConceptIndex] = useState<number | null>(null);
   // const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [isSaving, setIsSaving] = useState(false);
+  const [currentBriefData, setCurrentBriefData] = useState<Brief | null>(null);
 
   // Query to fetch briefs
   const { data: briefs = [], isLoading: isLoadingBriefs } = useQuery<Brief[]>({
@@ -65,9 +66,13 @@ export default function Home() {
       if (lastBrief?.concepts) {
         setGeneratedConcepts(lastBrief.concepts as Concept[]);
         setSelectedBriefId(lastBrief.id);
+        // Only update currentBriefData if we don't have one already or if this is a newer brief
+        if (!currentBriefData || lastBrief.id !== currentBriefData.id) {
+          setCurrentBriefData(lastBrief);
+        }
       }
     }
-  }, [briefs]);
+  }, [briefs, currentBriefData]);
 
   const form = useForm<z.infer<typeof briefFormSchema>>({
     resolver: zodResolver(briefFormSchema),
@@ -115,6 +120,11 @@ export default function Home() {
       if (data.concepts && Array.isArray(data.concepts)) {
         setGeneratedConcepts(data.concepts);
         setSelectedBriefId(data.id);
+        setCurrentBriefData(data);
+        
+        // Invalidate and refetch the briefs query to include the new brief
+        queryClient.invalidateQueries({ queryKey: ['/api/briefs'] });
+        
         toast({
           title: "Success",
           description: "Creative brief generated successfully!"
@@ -161,6 +171,70 @@ export default function Home() {
       });
     }
   });
+
+  const handleSaveConcept = async (concept: Concept) => {
+    if (!selectedBriefId) {
+      toast({
+        title: "Error",
+        description: "No brief selected",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (selectedConceptIndex === null) {
+      toast({
+        title: "Error",
+        description: "Please select a concept first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Use the current brief data from state first, then fall back to briefs array
+      let currentBrief = currentBriefData;
+      if (!currentBrief) {
+        currentBrief = briefs.find(b => b.id === selectedBriefId) || null;
+      }
+      
+      if (!currentBrief) {
+        throw new Error("Brief not found - please try generating concepts again");
+      }
+
+      console.log('Saving concept:', concept);
+      console.log('For brief ID:', selectedBriefId);
+      console.log('Current brief data:', currentBrief);
+
+      // Save the selected concept to the brief via API
+      const response = await apiRequest("POST", `/api/briefs/${selectedBriefId}/concepts`, {
+        concept: concept
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to save concept");
+      }
+      
+      toast({
+        title: "Concept Saved!",
+        description: `"${concept.title}" has been saved successfully`
+      });
+
+      // Navigate to the next step or show some confirmation
+      // You might want to redirect to a design editor or next page here
+      
+    } catch (error) {
+      console.error('Error saving concept:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to save concept",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (isLoadingBriefs) {
     return (
@@ -507,7 +581,7 @@ export default function Home() {
                 Generated Concepts
               </h2>
               <p className="text-gray-300">
-                Detailed banner concepts with design rationale. Select the one you like and click continue.
+                Detailed banner concepts with design rationale. Click on a concept to select it, then use the "Save and Continue" button to proceed.
               </p>
             </div>
           )}
@@ -659,9 +733,22 @@ export default function Home() {
                   </Button>
                 </div>
               </CardContent>
-              <Button onClick={() => insertConcept(selectedBriefId, concept), insertBrief(selectedBriefId, brief)}>
-                Save and Continue
-              </Button>
+              {selectedConceptIndex === index && (
+                <Button 
+                  onClick={() => handleSaveConcept(concept)}
+                  disabled={isSaving}
+                  className="mt-4 w-full bg-gradient-to-r from-purple-400 to-pink-400 hover:opacity-90"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 w-4 h-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save and Continue'
+                  )}
+                </Button>
+              )}
             </Card>
           ))}
         </div>

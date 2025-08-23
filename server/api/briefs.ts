@@ -1,8 +1,9 @@
 import { Router } from 'express';
-import { storage } from '../storage';
-import { generateConcepts } from '../lib/gemini';
-import { briefFormSchema } from '../simple-schema';
+import { storage } from '../storage.js'; // Added .js extension
+import { generateConcepts } from '../lib/gemini.js'; // Added .js extension
+import { briefFormSchema, InsertBrief, InsertConcept, RawConcept } from "@shared/schema.ts";
 import { ZodError } from 'zod';
+import { GeminiResponse } from '../lib/gemini.js'; // Added .js extension
 
 const router = Router();
 
@@ -19,7 +20,7 @@ router.get('/share/:shareId', async (req, res) => {
 });
 
 router.post('/:id/share', async (req, res) => {
-  const id = Number(req.params.id);
+  const id = req.params.id; // Changed to string
   const brief = await storage.updateBriefShare(id, true);
   res.json({ shareUrl: `/share/${brief.shareId}` });
 });
@@ -38,7 +39,7 @@ router.post('/', async (req, res) => {
       console.log('Get your API key from: https://aistudio.google.com/app/apikey');
     }
 
-    let response;
+    let response: GeminiResponse; // Use GeminiResponse here
     
     if (process.env.GEMINI_API_KEY) {
       try {
@@ -58,7 +59,7 @@ router.post('/', async (req, res) => {
             consumerJourney: validatedData.consumerJourney || 'Awareness to consideration stage',
             emotionalConnection: validatedData.emotionalConnection || 'Aspirational and trustworthy',
             visualStyle: validatedData.visualStyle || 'Clean, modern, and professional',
-            performanceMetrics: validatedData.performanceMetrics || 'CTR, impressions, engagement rate'
+            performanceMetrics: validatedData.performanceMetrics || 'CTR, impressions, engagement rate',
           },
           concepts: [
             {
@@ -147,7 +148,7 @@ router.post('/', async (req, res) => {
             consumerJourney: validatedData.consumerJourney || 'Awareness to consideration stage',
             emotionalConnection: validatedData.emotionalConnection || 'Aspirational and trustworthy',
             visualStyle: validatedData.visualStyle || 'Clean, modern, and professional',
-            performanceMetrics: validatedData.performanceMetrics || 'CTR, impressions, engagement rate'
+            performanceMetrics: validatedData.performanceMetrics || 'CTR, impressions, engagement rate',
           },
           concepts: [
             {
@@ -179,10 +180,34 @@ router.post('/', async (req, res) => {
     
     console.log('Generated response:', response);
 
-    const brief = await storage.createBrief({
-      ...response.completedBrief,
-      concepts: response.concepts
-    });
+    const briefToInsert: InsertBrief = {
+      projectName: response.completedBrief.projectName,
+      targetAudience: response.completedBrief.targetAudience,
+      keyMessage: response.completedBrief.keyMessage,
+      brandGuidelines: response.completedBrief.brandGuidelines,
+      bannerSizes: response.completedBrief.bannerSizes,
+      brandContext: response.completedBrief.brandContext || undefined,
+      objective: response.completedBrief.objective || undefined,
+      consumerJourney: response.completedBrief.consumerJourney || undefined,
+      emotionalConnection: response.completedBrief.emotionalConnection || undefined,
+      visualStyle: response.completedBrief.visualStyle || undefined,
+      performanceMetrics: response.completedBrief.performanceMetrics || undefined,
+      shareId: response.completedBrief.shareId || undefined,
+      isPublic: response.completedBrief.isPublic || false,
+    };
+    
+    const conceptsToInsert: Omit<InsertConcept, 'briefId'>[] = response.concepts.map((concept: RawConcept) => ({
+      title: concept.title,
+      description: concept.description || undefined,
+      elements: concept.elements || {},
+      midjourneyPrompts: concept.midjourneyPrompts || {},
+      rationale: concept.rationale || {},
+    }));
+
+    const brief = await storage.createBrief(briefToInsert, conceptsToInsert);
+
+    // Assign the new briefId to each concept after brief creation
+    // The createBrief function in storage.ts is expected to handle the association of concepts with the brief.
 
     console.log('Created brief:', brief);
     res.json(brief);
@@ -193,6 +218,69 @@ router.post('/', async (req, res) => {
     } else {
       res.status(500).json({ message: (error as Error).message || 'Internal server error' });
     }
+  }
+});
+
+// Save a concept to a brief
+router.post('/:id/concepts', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { concept: rawConcept } = req.body;
+    
+    if (!rawConcept) {
+      return res.status(400).json({ message: 'Concept data is required' });
+    }
+
+    const conceptToInsert: InsertConcept = {
+      briefId: id,
+      title: rawConcept.title,
+      description: rawConcept.description || undefined,
+      elements: rawConcept.elements || {},
+      midjourneyPrompts: rawConcept.midjourneyPrompts || {},
+      rationale: rawConcept.rationale || {},
+    };
+    
+    console.log(`Saving concept to brief ${id}:`, conceptToInsert);
+    
+    const brief = await storage.getBrief(id);
+    if (!brief) {
+      return res.status(404).json({ message: 'Brief not found' });
+    }
+    
+    const savedConcept = await storage.saveConcept(id, conceptToInsert);
+    
+    res.json({ 
+      success: true, 
+      message: 'Concept saved successfully',
+      briefId: id,
+      conceptTitle: rawConcept.title,
+      savedConcept: savedConcept
+    });
+  } catch (error) {
+    console.error('Error saving concept:', error);
+    res.status(500).json({ message: (error as Error).message || 'Failed to save concept' });
+  }
+});
+
+// Get saved concepts for a brief
+router.get('/:id/concepts', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const brief = await storage.getBrief(id);
+    if (!brief) {
+      return res.status(404).json({ message: 'Brief not found' });
+    }
+    
+    const savedConcepts = brief.concepts || [];
+    res.json({
+      briefId: id,
+      savedConcepts: savedConcepts,
+      count: savedConcepts.length
+    });
+  } catch (error) {
+    console.error('Error getting saved concepts:', error);
+    res.status(500).json({ message: (error as Error).message || 'Failed to get saved concepts' });
   }
 });
 

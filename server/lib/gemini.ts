@@ -1,3 +1,4 @@
+import { RawConcept } from "@/shared/schema";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 function getGemini() {
@@ -22,7 +23,12 @@ type BriefInput = {
   performanceMetrics?: string;
 };
 
-export async function generateConcepts(brief: BriefInput): Promise<any> {
+export interface GeminiResponse {
+  completedBrief: RawConcept;
+  concepts: RawConcept[];
+}
+
+export async function generateConcepts(brief: BriefInput): Promise<GeminiResponse> {
   try {
     console.log('Gemini API Key exists:', !!process.env.GEMINI_API_KEY);
 
