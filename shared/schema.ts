@@ -22,9 +22,16 @@ export const briefs = pgTable("briefs", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(), // Add updatedAt
 });
 
-export const concepts = pgTable("concepts", {
+export const enhancedBriefs = pgTable("enhanced_briefs", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`), // Changed to uuid and added defaultRandom()
   briefId: uuid("brief_id").notNull().references(() => briefs.id, { onDelete: "cascade" }),
+  enhancedContent: jsonb("enhanced_content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const concepts = pgTable("concepts", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`), // Changed to uuid and added defaultRandom()
+  enhancedBriefId: uuid("enhanced_brief_id").notNull().references(() => enhancedBriefs.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description"),
   elements: jsonb("elements"),
@@ -32,6 +39,13 @@ export const concepts = pgTable("concepts", {
   rationale: jsonb("rationale"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const selectedConcepts = pgTable("selected_concepts", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`), // Changed to uuid and added defaultRandom()
+  conceptId: uuid("concept_id").notNull().references(() => concepts.id, { onDelete: "cascade" }),
+  briefId: uuid("brief_id").notNull().references(() => briefs.id, { onDelete: "cascade" }), // Link to the original brief
+  selectedAt: timestamp("selected_at").defaultNow().notNull(),
 });
 
 export const insertBriefSchema = createInsertSchema(briefs).pick({
@@ -50,8 +64,13 @@ export const insertBriefSchema = createInsertSchema(briefs).pick({
   isPublic: true,
 });
 
-export const insertConceptSchema = createInsertSchema(concepts).pick({
+export const insertEnhancedBriefSchema = createInsertSchema(enhancedBriefs).pick({
   briefId: true,
+  enhancedContent: true,
+});
+
+export const insertConceptSchema = createInsertSchema(concepts).pick({
+  enhancedBriefId: true,
   title: true,
   description: true,
   elements: true,
@@ -59,11 +78,21 @@ export const insertConceptSchema = createInsertSchema(concepts).pick({
   rationale: true,
 });
 
+export const insertSelectedConceptSchema = createInsertSchema(selectedConcepts).pick({
+  conceptId: true,
+  briefId: true,
+});
+
 export type InsertBrief = z.infer<typeof insertBriefSchema>;
+export type InsertEnhancedBrief = z.infer<typeof insertEnhancedBriefSchema>;
 export type InsertConcept = z.infer<typeof insertConceptSchema>;
+export type InsertSelectedConcept = z.infer<typeof insertSelectedConceptSchema>;
+
 export type NewBrief = InsertBrief;
 export type Brief = typeof briefs.$inferSelect & { concepts?: Concept[] };
+export type EnhancedBrief = typeof enhancedBriefs.$inferSelect;
 export type Concept = typeof concepts.$inferSelect;
+export type SelectedConcept = typeof selectedConcepts.$inferSelect;
 
 export const briefFormSchema = z.object({
   projectName: z.string().min(3, "Project name must be at least 3 characters"),

@@ -1,6 +1,6 @@
 // Storage layer with proper typing
 import { db } from './db.js'; // Import db instance
-import { Brief, briefs, Concept, concepts, InsertBrief, InsertConcept } from "@shared/schema.ts";
+import { Brief, briefs, Concept, concepts, InsertBrief, InsertConcept, enhancedBriefs, InsertEnhancedBrief, EnhancedBrief, InsertSelectedConcept, selectedConcepts, SelectedConcept } from "@shared/schema.ts";
 import { eq } from 'drizzle-orm';
 import { desc } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid'; // Import uuid
@@ -16,19 +16,24 @@ function generateId(length: number = 10): string {
 }
 
 export interface IStorage {
-  createBrief(brief: InsertBrief, initialConcepts: Omit<InsertConcept, 'briefId'>[]): Promise<Brief>;
+  createBrief(brief: InsertBrief): Promise<Brief>;
   getBrief(id: string): Promise<Brief | null>;
   getBriefByShareId(shareId: string): Promise<Brief | null>;
   getAllBriefs(): Promise<Brief[]>;
   updateBriefShare(id: string, isPublic: boolean): Promise<Brief>;
-  saveConcept(briefId: string, concept: Omit<InsertConcept, 'briefId'>): Promise<Concept>;
+  createEnhancedBrief(enhancedBrief: InsertEnhancedBrief): Promise<EnhancedBrief>;
+  getEnhancedBriefByBriefId(briefId: string): Promise<EnhancedBrief | null>;
+  saveConcept(enhancedBriefId: string, concept: Omit<InsertConcept, 'enhancedBriefId'>): Promise<Concept>;
+  getConceptsByEnhancedBriefId(enhancedBriefId: string): Promise<Concept[]>;
+  saveSelectedConcept(selectedConcept: InsertSelectedConcept): Promise<SelectedConcept>;
+  getSelectedConceptByBriefId(briefId: string): Promise<SelectedConcept | null>;
 }
 
 export class DatabaseStorage implements IStorage {
-  async createBrief(insertBrief: InsertBrief, initialConcepts: Omit<InsertConcept, 'briefId'>[]): Promise<Brief> {
+  async createBrief(insertBrief: InsertBrief): Promise<Brief> {
     if (!db) {
       console.warn('Drizzle DB not initialized, falling back to in-memory storage for createBrief.');
-      return InMemoryStorage.instance.createBrief(insertBrief, initialConcepts);
+      return InMemoryStorage.instance.createBrief(insertBrief);
     }
 
     try {
@@ -39,17 +44,7 @@ export class DatabaseStorage implements IStorage {
       }
       const newBrief = newBriefs[0];
 
-      // Insert initial concepts if provided
-      let createdConcepts: Concept[] = [];
-      if (initialConcepts && initialConcepts.length > 0) {
-        const conceptsToInsert = initialConcepts.map(concept => ({
-          ...concept,
-          briefId: newBrief.id,
-        }));
-        createdConcepts = await db!.insert(concepts).values(conceptsToInsert).returning();
-      }
-
-      return { ...newBrief, concepts: createdConcepts };
+      return newBrief;
     } catch (error) {
       console.error('Supabase brief creation failed:', error);
       throw error;
@@ -70,9 +65,7 @@ export class DatabaseStorage implements IStorage {
       }
       const brief = briefResult[0];
 
-      const associatedConcepts = await db!.select().from(concepts).where(eq(concepts.briefId, id));
-
-      return { ...brief, concepts: associatedConcepts };
+      return brief;
     } catch (error) {
       console.error('Supabase brief retrieval failed:', error);
       return InMemoryStorage.instance.getBrief(id);
@@ -93,9 +86,7 @@ export class DatabaseStorage implements IStorage {
       }
       const brief = briefResult[0];
 
-      const associatedConcepts = await db!.select().from(concepts).where(eq(concepts.briefId, brief.id));
-
-      return { ...brief, concepts: associatedConcepts };
+      return brief;
     } catch (error) {
       console.error('Supabase brief retrieval by shareId failed:', error);
       return InMemoryStorage.instance.getBriefByShareId(shareId);
@@ -111,12 +102,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const briefResults = await db!.select().from(briefs).orderBy(desc(briefs.createdAt));
 
-      const briefsWithConcepts: Brief[] = await Promise.all(briefResults.map(async (brief: Brief) => {
-        const associatedConcepts = await db!.select().from(concepts).where(eq(concepts.briefId, brief.id));
-        return { ...brief, concepts: associatedConcepts };
-      }));
-
-      return briefsWithConcepts;
+      return briefResults;
     } catch (error) {
       console.error('Supabase briefs retrieval failed:', error);
       return InMemoryStorage.instance.getAllBriefs();
@@ -140,25 +126,57 @@ export class DatabaseStorage implements IStorage {
       }
       const updatedBrief = updatedBriefs[0];
 
-      const associatedConcepts = await db!.select().from(concepts).where(eq(concepts.briefId, id));
-
-      return { ...updatedBrief, concepts: associatedConcepts };
+      return updatedBrief;
     } catch (error) {
       console.error('Supabase brief update failed:', error);
-      return InMemoryStorage.instance.updateBriefShare(id, isPublic);
+      throw error;
     }
   }
 
-  async saveConcept(briefId: string, concept: Omit<InsertConcept, 'briefId'>): Promise<Concept> {
+  async createEnhancedBrief(insertEnhancedBrief: InsertEnhancedBrief): Promise<EnhancedBrief> {
+    if (!db) {
+      console.warn('Drizzle DB not initialized, falling back to in-memory storage for createEnhancedBrief.');
+      return InMemoryStorage.instance.createEnhancedBrief(insertEnhancedBrief);
+    }
+    try {
+      const newEnhancedBriefs = await db!.insert(enhancedBriefs).values(insertEnhancedBrief).returning();
+      if (!newEnhancedBriefs || newEnhancedBriefs.length === 0) {
+        throw new Error('Failed to create enhanced brief.');
+      }
+      return newEnhancedBriefs[0];
+    } catch (error) {
+      console.error('Supabase enhanced brief creation failed:', error);
+      throw error;
+    }
+  }
+
+  async getEnhancedBriefByBriefId(briefId: string): Promise<EnhancedBrief | null> {
+    if (!db) {
+      console.warn('Drizzle DB not initialized, falling back to in-memory storage for getEnhancedBriefByBriefId.');
+      return InMemoryStorage.instance.getEnhancedBriefByBriefId(briefId);
+    }
+    try {
+      const enhancedBriefResult = await db!.select().from(enhancedBriefs).where(eq(enhancedBriefs.briefId, briefId)).limit(1);
+      if (!enhancedBriefResult || enhancedBriefResult.length === 0) {
+        return null;
+      }
+      return enhancedBriefResult[0];
+    } catch (error) {
+      console.error('Supabase enhanced brief retrieval failed:', error);
+      return InMemoryStorage.instance.getEnhancedBriefByBriefId(briefId);
+    }
+  }
+
+  async saveConcept(enhancedBriefId: string, concept: Omit<InsertConcept, 'enhancedBriefId'>): Promise<Concept> {
     if (!db) {
       console.warn('Drizzle DB not initialized, falling back to in-memory storage for saveConcept.');
-      return InMemoryStorage.instance.saveConcept(briefId, concept);
+      return InMemoryStorage.instance.saveConcept(enhancedBriefId, concept);
     }
 
     try {
       const newConcepts = await db!.insert(concepts).values({
         ...concept,
-        briefId: briefId,
+        enhancedBriefId: enhancedBriefId,
       }).returning();
 
       if (!newConcepts || newConcepts.length === 0) {
@@ -171,13 +189,64 @@ export class DatabaseStorage implements IStorage {
       throw error;
     }
   }
+
+  async getConceptsByEnhancedBriefId(enhancedBriefId: string): Promise<Concept[]> {
+    if (!db) {
+      console.warn('Drizzle DB not initialized, falling back to in-memory storage for getConceptsByEnhancedBriefId.');
+      return InMemoryStorage.instance.getConceptsByEnhancedBriefId(enhancedBriefId);
+    }
+    try {
+      const associatedConcepts = await db!.select().from(concepts).where(eq(concepts.enhancedBriefId, enhancedBriefId));
+      return associatedConcepts;
+    } catch (error) {
+      console.error('Supabase concept retrieval by enhanced brief ID failed:', error);
+      return InMemoryStorage.instance.getConceptsByEnhancedBriefId(enhancedBriefId);
+    }
+  }
+
+  async saveSelectedConcept(insertSelectedConcept: InsertSelectedConcept): Promise<SelectedConcept> {
+    if (!db) {
+      console.warn('Drizzle DB not initialized, falling back to in-memory storage for saveSelectedConcept.');
+      return InMemoryStorage.instance.saveSelectedConcept(insertSelectedConcept);
+    }
+    try {
+      const newSelectedConcepts = await db!.insert(selectedConcepts).values(insertSelectedConcept).returning();
+      if (!newSelectedConcepts || newSelectedConcepts.length === 0) {
+        throw new Error('Failed to save selected concept.');
+      }
+      return newSelectedConcepts[0];
+    } catch (error) {
+      console.error('Supabase selected concept save failed:', error);
+      throw error;
+    }
+  }
+
+  async getSelectedConceptByBriefId(briefId: string): Promise<SelectedConcept | null> {
+    if (!db) {
+      console.warn('Drizzle DB not initialized, falling back to in-memory storage for getSelectedConceptByBriefId.');
+      return InMemoryStorage.instance.getSelectedConceptByBriefId(briefId);
+    }
+    try {
+      const selectedConceptResult = await db!.select().from(selectedConcepts).where(eq(selectedConcepts.briefId, briefId)).limit(1);
+      if (!selectedConceptResult || selectedConceptResult.length === 0) {
+        return null;
+      }
+      return selectedConceptResult[0];
+    } catch (error) {
+      console.error('Supabase selected concept retrieval failed:', error);
+      return InMemoryStorage.instance.getSelectedConceptByBriefId(briefId);
+    }
+  }
 }
 
 class InMemoryStorage implements IStorage {
   static instance = new InMemoryStorage();
   private items: Brief[] = [];
+  private enhancedBriefs: EnhancedBrief[] = [];
+  private concepts: Concept[] = [];
+  private selectedConcepts: SelectedConcept[] = [];
 
-  async createBrief(insertBrief: InsertBrief, initialConcepts: Omit<InsertConcept, 'briefId'>[]): Promise<Brief> {
+  async createBrief(insertBrief: InsertBrief): Promise<Brief> {
     const newBriefId = uuidv4(); // Generate UUID for in-memory briefs
     const brief = {
       id: newBriefId,
@@ -196,36 +265,24 @@ class InMemoryStorage implements IStorage {
       isPublic: false,
       createdAt: new Date(),
       updatedAt: new Date(), // Add updatedAt for consistency
-      concepts: [] as Concept[]
     };
     this.items.push(brief);
-
-    // Save initial concepts for in-memory brief
-    if (initialConcepts && initialConcepts.length > 0) {
-      const createdConcepts = initialConcepts.map(concept => ({
-        ...concept, id: uuidv4(), briefId: newBriefId, createdAt: new Date(), updatedAt: new Date(), title: concept.title, description: concept.description ?? null,
-        elements: concept.elements ?? null,
-        midjourneyPrompts: concept.midjourneyPrompts ?? null,
-        rationale: concept.rationale ?? null,
-       }));
-      brief.concepts.push(...createdConcepts);
-    }
 
     return brief;
   }
 
   async getBrief(id: string): Promise<Brief | null> {
     const brief = this.items.find(b => b.id === id) || null;
-    return brief ? { ...brief, concepts: brief.concepts || [] } : null; // Ensure concepts array is always present
+    return brief ? brief : null;
   }
 
   async getBriefByShareId(shareId: string): Promise<Brief | null> {
     const brief = this.items.find(b => b.shareId === shareId) || null;
-    return brief ? { ...brief, concepts: brief.concepts || [] } : null;
+    return brief ? brief : null;
   }
 
   async getAllBriefs(): Promise<Brief[]> {
-    return this.items.map(brief => ({ ...brief, concepts: brief.concepts || [] }));
+    return this.items;
   }
 
   async updateBriefShare(id: string, isPublic: boolean): Promise<Brief> {
@@ -236,29 +293,55 @@ class InMemoryStorage implements IStorage {
     return brief;
   }
 
-  async saveConcept(briefId: string, concept: Omit<InsertConcept, 'briefId'>): Promise<Concept> {
-    const brief = this.items.find(b => b.id === briefId);
-    if (!brief) throw new Error('Brief not found');
-    
+  async createEnhancedBrief(insertEnhancedBrief: InsertEnhancedBrief): Promise<EnhancedBrief> {
+    const enhancedBrief: EnhancedBrief = {
+      id: uuidv4(),
+      briefId: insertEnhancedBrief.briefId,
+      enhancedContent: insertEnhancedBrief.enhancedContent,
+      createdAt: new Date(),
+    };
+    this.enhancedBriefs.push(enhancedBrief);
+    return enhancedBrief;
+  }
+
+  async getEnhancedBriefByBriefId(briefId: string): Promise<EnhancedBrief | null> {
+    return this.enhancedBriefs.find(eb => eb.briefId === briefId) || null;
+  }
+
+  async saveConcept(enhancedBriefId: string, concept: Omit<InsertConcept, 'enhancedBriefId'>): Promise<Concept> {
     const newConcept: Concept = {
       ...concept,
       id: uuidv4(),
-      briefId: briefId,
+      enhancedBriefId: enhancedBriefId,
       createdAt: new Date(),
       updatedAt: new Date(),
-      elements: concept.elements ?? null, // Ensure elements is always an object
-      midjourneyPrompts: concept.midjourneyPrompts ?? null, // Ensure midjourneyPrompts is always an object
-      rationale: concept.rationale ?? null, // Ensure rationale is always an object
       title: concept.title,
       description: concept.description ?? null,
+      elements: concept.elements ?? null,
+      midjourneyPrompts: concept.midjourneyPrompts ?? null,
+      rationale: concept.rationale ?? null,
     };
-
-    if (!brief.concepts) { // Initialize if undefined
-      brief.concepts = [];
-    }
-    brief.concepts.push(newConcept);
-    brief.updatedAt = new Date(); // Update brief's updatedAt field when concept is saved
+    this.concepts.push(newConcept);
     return newConcept;
+  }
+
+  async getConceptsByEnhancedBriefId(enhancedBriefId: string): Promise<Concept[]> {
+    return this.concepts.filter(c => c.enhancedBriefId === enhancedBriefId);
+  }
+
+  async saveSelectedConcept(insertSelectedConcept: InsertSelectedConcept): Promise<SelectedConcept> {
+    const selectedConcept: SelectedConcept = {
+      id: uuidv4(),
+      conceptId: insertSelectedConcept.conceptId,
+      briefId: insertSelectedConcept.briefId,
+      selectedAt: new Date(),
+    };
+    this.selectedConcepts.push(selectedConcept);
+    return selectedConcept;
+  }
+
+  async getSelectedConceptByBriefId(briefId: string): Promise<SelectedConcept | null> {
+    return this.selectedConcepts.find(sc => sc.briefId === briefId) || null;
   }
 }
 

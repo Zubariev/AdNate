@@ -9,7 +9,7 @@ function getGemini() {
   return new GoogleGenerativeAI(apiKey);
 }
 
-type BriefInput = {
+export type BriefInput = {
   projectName?: string;
   targetAudience?: string;
   keyMessage?: string;
@@ -23,18 +23,31 @@ type BriefInput = {
   performanceMetrics?: string;
 };
 
-export interface GeminiResponse {
-  completedBrief: RawConcept;
-  concepts: RawConcept[];
-}
+export type EnhancedBriefOutput = {
+  projectName: string;
+  targetAudience: string;
+  keyMessage: string;
+  brandGuidelines: string;
+  bannerSizes: string;
+  brandContext?: string;
+  objective?: string;
+  consumerJourney?: string;
+  emotionalConnection?: string;
+  visualStyle?: string;
+  performanceMetrics?: string;
+};
 
-export async function generateConcepts(brief: BriefInput): Promise<GeminiResponse> {
+// export interface GeminiResponse {
+//   completedBrief: RawConcept;
+//   concepts: RawConcept[];
+// }
+
+export async function enhanceBrief(brief: BriefInput): Promise<EnhancedBriefOutput> {
   try {
-    console.log('Gemini API Key exists:', !!process.env.GEMINI_API_KEY);
+    console.log('Gemini API Key exists for brief enhancement:', !!process.env.GEMINI_API_KEY);
 
-    console.log('Generating concepts for brief:', brief);
+    console.log('Enhancing brief:', brief);
 
-    // First, let's auto-fill any missing fields
     const completionPrompt = `As a veteran Marketing Director with 15+ years at Ogilvy and WPP (having managed $200M+ in campaigns), analyze this brief through the lens of a client who *doesn't know what they don't know*. Your mission: Transform vague inputs into a contractor-ready brief using **real-world agency protocols**. 
 
     **Critical Rules for Enhancement:**
@@ -91,22 +104,38 @@ export async function generateConcepts(brief: BriefInput): Promise<GeminiRespons
     const cleanedResponse = jsonMatch ? jsonMatch[0] : responseText;
     
     const filledBrief = JSON.parse(cleanedResponse);
-    console.log('Auto-filled brief:', filledBrief);
+    console.log('Enhanced brief:', filledBrief);
+    return filledBrief;
+  } catch (error) {
+    console.error('Error details (enhanceBrief):', {
+      name: (error as Error).name,
+      message: (error as Error).message,
+      stack: (error as Error).stack
+    });
+    throw error;
+  }
+}
+
+export async function generateConceptsFromEnhancedBrief(enhancedBrief: EnhancedBriefOutput): Promise<RawConcept[]> {
+  try {
+    console.log('Gemini API Key exists for concept generation:', !!process.env.GEMINI_API_KEY);
+
+    console.log('Generating concepts for enhanced brief:', enhancedBrief);
 
     const conceptPrompt = `Based on the provided brief details, generate 3 groundbreaking banner design concepts that demonstrate mastery of visual communication. Concepts MUST integrate at least two aesthetics from Aesthetics Wiki (e.g., Dark Academia, Cottagecore, Adventurecore) and THREE photography techniques from this list: [chiaroscuro, warm golden hour lighting, soft bounced lighting, specular lighting, bioluminescent details]. Return your response in JSON format using the structure provided below.
 
     Project Details:
-    Project: ${filledBrief.projectName}
-    Target Audience: ${filledBrief.targetAudience}
-    Key Message: ${filledBrief.keyMessage}
-    Brand Guidelines: ${filledBrief.brandGuidelines}
-    Banner Sizes: ${filledBrief.bannerSizes}
-    Brand Context: ${filledBrief.brandContext}
-    Objective: ${filledBrief.objective}
-    Consumer Journey: ${filledBrief.consumerJourney}
-    Emotional Connection: ${filledBrief.emotionalConnection}
-    Visual Style: ${filledBrief.visualStyle}
-    Performance Metrics: ${filledBrief.performanceMetrics}
+    Project: ${enhancedBrief.projectName}
+    Target Audience: ${enhancedBrief.targetAudience}
+    Key Message: ${enhancedBrief.keyMessage}
+    Brand Guidelines: ${enhancedBrief.brandGuidelines}
+    Banner Sizes: ${enhancedBrief.bannerSizes}
+    Brand Context: ${enhancedBrief.brandContext}
+    Objective: ${enhancedBrief.objective}
+    Consumer Journey: ${enhancedBrief.consumerJourney}
+    Emotional Connection: ${enhancedBrief.emotionalConnection}
+    Visual Style: ${enhancedBrief.visualStyle}
+    Performance Metrics: ${enhancedBrief.performanceMetrics}
     
     For EACH concept, STRICTLY INCLUDE:
     1. A title reflecting aesthetic fusion (e.g., "Dark Academia Meets Bioluminescent Adventurecore")
@@ -134,7 +163,6 @@ export async function generateConcepts(brief: BriefInput): Promise<GeminiRespons
     
     Return your response in the following JSON structure:
     {
-      "completedBrief": ${JSON.stringify(filledBrief)},
       "concepts": [{
         "title": "string",
         "description": "string",
@@ -160,7 +188,9 @@ export async function generateConcepts(brief: BriefInput): Promise<GeminiRespons
       }]
     }`;
 
-    console.log('Sending prompt to Gemini');
+    const genAI = getGemini();
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
     const conceptResponse = await model.generateContent([
       { text: conceptPrompt + "\n\nIMPORTANT: Return ONLY valid JSON, no other text or markdown formatting." }
     ]);
@@ -179,9 +209,9 @@ export async function generateConcepts(brief: BriefInput): Promise<GeminiRespons
     
     const parsedContent = JSON.parse(cleanedConceptResponse);
     console.log('Parsed Gemini response:', parsedContent);
-    return parsedContent;
+    return parsedContent.concepts;
   } catch (error) {
-    console.error('Error details:', {
+    console.error('Error details (generateConceptsFromEnhancedBrief):', {
       name: (error as Error).name,
       message: (error as Error).message,
       stack: (error as Error).stack

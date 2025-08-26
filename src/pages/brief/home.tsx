@@ -11,7 +11,8 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription
+  CardDescription,
+  CardFooter
 } from "../../components/ui/card.js";
 import { Button } from "../../components/ui/button.js";
 import {
@@ -41,38 +42,53 @@ import * as z from 'zod'
 import { KeywordSuggestions } from "../../components/ui/keyword-suggestions.js";
 import { briefSuggestions } from "../../lib/brief-suggestions.js";
 import { industryTemplates } from "../../lib/industry-templates.js";
-import { briefFormSchema, type Brief, type Concept } from "../../shared/schema.js";
+import { briefFormSchema, type Brief, type Concept, type EnhancedBrief } from "../../shared/schema.js";
 
 export default function Home() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedBriefId, setSelectedBriefId] = useState<number | null>(null);
+  const [selectedBriefId, setSelectedBriefId] = useState<string | null>(null);
   const [generatedConcepts, setGeneratedConcepts] = useState<Concept[]>([]);
   const [selectedConceptIndex, setSelectedConceptIndex] = useState<number | null>(null);
   // const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [isSaving, setIsSaving] = useState(false);
   const [currentBriefData, setCurrentBriefData] = useState<Brief | null>(null);
+  const [currentEnhancedBriefId, setCurrentEnhancedBriefId] = useState<string | null>(null);
+  const [isGeneratingConcepts, setIsGeneratingConcepts] = useState(false);
+  const [isLoadingEnhancedBriefs, setIsLoadingEnhancedBriefs] = useState(false); // New loading state
 
   // Query to fetch briefs
   const { data: briefs = [], isLoading: isLoadingBriefs } = useQuery<Brief[]>({
     queryKey: ['/api/briefs'],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/briefs");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch briefs');
+      }
+      return response.json();
+    },
   });
 
-  // Update concepts when briefs change or on initial load
+  // Effect to set the last brief and fetch enhanced brief/concepts if necessary
   useEffect(() => {
     if (briefs.length > 0) {
       const lastBrief = briefs[briefs.length - 1];
-      if (lastBrief?.concepts) {
-        setGeneratedConcepts(lastBrief.concepts as Concept[]);
+      // Only update if a new brief is available or if currentBriefData is null
+      if (!currentBriefData || lastBrief.id !== currentBriefData.id) {
         setSelectedBriefId(lastBrief.id);
-        // Only update currentBriefData if we don't have one already or if this is a newer brief
-        if (!currentBriefData || lastBrief.id !== currentBriefData.id) {
-          setCurrentBriefData(lastBrief);
-        }
+        setCurrentBriefData(lastBrief);
       }
     }
   }, [briefs, currentBriefData]);
+
+  // Effect to fetch enhanced brief and concepts when selectedBriefId changes or currentEnhancedBriefId is null
+  useEffect(() => {
+    if (selectedBriefId && !currentEnhancedBriefId && !isLoadingEnhancedBriefs) {
+      fetchEnhancedBriefAndConcepts(selectedBriefId);
+    }
+  }, [selectedBriefId, currentEnhancedBriefId, isLoadingEnhancedBriefs]);
 
   const form = useForm<z.infer<typeof briefFormSchema>>({
     resolver: zodResolver(briefFormSchema),
@@ -88,7 +104,7 @@ export default function Home() {
       emotionalConnection: "",
       visualStyle: "",
       performanceMetrics: "",
-      concepts: []
+      // Removed concepts from defaultValues as they are no longer part of initial brief creation
     }
   });
 
@@ -101,38 +117,33 @@ export default function Home() {
     });
   }, [form.formState, form]);
 
-  const mutation = useMutation({
+  const createBriefMutation = useMutation({
     mutationFn: async (formData: z.infer<typeof briefFormSchema>) => {
-      console.log('Starting mutation with data:', formData);
+      console.log('Starting brief creation mutation with data:', formData);
       try {
         const response = await apiRequest("POST", "/api/briefs", formData);
-        console.log('Raw response:', response);
-        const data = await response.json();
-        console.log('Parsed response data:', data);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to create brief');
+        }
+        const data: Brief = await response.json();
+        console.log('Parsed brief creation response data:', data);
         return data;
       } catch (error) {
-        console.error('Mutation error:', error);
+        console.error('Brief creation mutation error:', error);
         throw error;
       }
     },
     onSuccess: (data: Brief) => {
-      console.log('Mutation success:', data);
-      if (data.concepts && Array.isArray(data.concepts)) {
-        setGeneratedConcepts(data.concepts);
-        setSelectedBriefId(data.id);
-        setCurrentBriefData(data);
-        
-        // Invalidate and refetch the briefs query to include the new brief
-        queryClient.invalidateQueries({ queryKey: ['/api/briefs'] });
-        
-        toast({
-          title: "Success",
-          description: "Creative brief generated successfully!"
-        });
-      }
+      console.log('Brief creation success:', data);
+      setSelectedBriefId(data.id);
+      setCurrentBriefData(data);
+      queryClient.invalidateQueries({ queryKey: ['/api/briefs'] });
+      // Now trigger the enhancement and concept generation
+      enhanceAndGenerateConcepts(data.id);
     },
     onError: (error: Error) => {
-      console.error('Mutation error in onError:', error);
+      console.error('Brief creation error in onError:', error);
       toast({
         title: "Error",
         description: error.message,
@@ -140,6 +151,76 @@ export default function Home() {
       });
     }
   });
+
+  const enhanceAndGenerateConcepts = async (briefId: string) => {
+    setIsGeneratingConcepts(true);
+    try {
+      // Step 1: Enhance the brief
+      toast({
+        title: "Enhancing Brief",
+        description: "Your brief is being enhanced by the AI...",
+        duration: 5000
+      });
+      const enhanceResponse = await apiRequest("POST", `/api/briefs/${briefId}/enhance`);
+      if (!enhanceResponse.ok) {
+        const errorData = await enhanceResponse.json();
+        throw new Error(errorData.message || 'Failed to enhance brief');
+      }
+      const enhancedBrief: EnhancedBrief = await enhanceResponse.json();
+      setCurrentEnhancedBriefId(enhancedBrief.id);
+      console.log('Enhanced brief received:', enhancedBrief);
+
+      // Step 2: Generate concepts from the enhanced brief
+      toast({
+        title: "Generating Concepts",
+        description: "The AI is now generating creative concepts...",
+        duration: 10000
+      });
+      const generateConceptsResponse = await apiRequest("POST", `/api/briefs/${enhancedBrief.id}/generate-concepts`);
+      if (!generateConceptsResponse.ok) {
+        const errorData = await generateConceptsResponse.json();
+        throw new Error(errorData.message || 'Failed to generate concepts');
+      }
+      const conceptsData: Concept[] = await generateConceptsResponse.json();
+      setGeneratedConcepts(conceptsData);
+      console.log('Generated concepts received:', conceptsData);
+
+      toast({
+        title: "Success",
+        description: "Creative concepts generated successfully!"
+      });
+    } catch (error) {
+      console.error('Error in enhanceAndGenerateConcepts:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to generate concepts",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingConcepts(false);
+    }
+  };
+
+  const fetchEnhancedBriefAndConcepts = async (briefId: string) => {
+    setIsLoadingEnhancedBriefs(true); // Set loading state
+    try {
+      const enhancedBriefResponse = await apiRequest("GET", `/api/briefs/${briefId}/enhanced-brief`); // Need to create this endpoint
+      if (enhancedBriefResponse.ok) {
+        const enhancedBriefData: EnhancedBrief = await enhancedBriefResponse.json();
+        setCurrentEnhancedBriefId(enhancedBriefData.id);
+        const conceptsResponse = await apiRequest("GET", `/api/briefs/${enhancedBriefData.id}/concepts`);
+        if (conceptsResponse.ok) {
+          const conceptsData: Concept[] = await conceptsResponse.json();
+          setGeneratedConcepts(conceptsData);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching enhanced brief or concepts:', error);
+    } finally {
+      // Ensure loading state is always reset
+      setIsLoadingEnhancedBriefs(false); // Use new loading state
+    }
+  }
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -150,7 +231,7 @@ export default function Home() {
   };
 
   const shareMutation = useMutation({
-    mutationFn: async (briefId: number) => {
+    mutationFn: async (briefId: string) => {
       const response = await apiRequest("POST", `/api/briefs/${briefId}/share`);
       const data = await response.json();
       return data;
@@ -193,42 +274,25 @@ export default function Home() {
 
     setIsSaving(true);
     try {
-      // Use the current brief data from state first, then fall back to briefs array
-      let currentBrief = currentBriefData;
-      if (!currentBrief) {
-        currentBrief = briefs.find(b => b.id === selectedBriefId) || null;
-      }
-      
-      if (!currentBrief) {
-        throw new Error("Brief not found - please try generating concepts again");
-      }
-
-      console.log('Saving concept:', concept);
-      console.log('For brief ID:', selectedBriefId);
-      console.log('Current brief data:', currentBrief);
-
-      // Save the selected concept to the brief via API
-      const response = await apiRequest("POST", `/api/briefs/${selectedBriefId}/concepts`, {
-        concept: concept
+      // Save the selected concept ID to the backend
+      const response = await apiRequest("POST", `/api/briefs/${selectedBriefId}/select-concept`, {
+        conceptId: concept.id,
       });
       
       if (!response.ok) {
-        throw new Error("Failed to save concept");
+        throw new Error("Failed to save selected concept");
       }
       
       toast({
-        title: "Concept Saved!",
-        description: `"${concept.title}" has been saved successfully`
+        title: "Concept Selected!",
+        description: `"${concept.title}" has been selected successfully`
       });
-
-      // Navigate to the next step or show some confirmation
-      // You might want to redirect to a design editor or next page here
       
     } catch (error) {
-      console.error('Error saving concept:', error);
+      console.error('Error saving selected concept:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save concept",
+        description: error instanceof Error ? error.message : "Failed to save selected concept",
         variant: "destructive"
       });
     } finally {
@@ -236,7 +300,7 @@ export default function Home() {
     }
   };
 
-  if (isLoadingBriefs) {
+  if (isLoadingBriefs || isGeneratingConcepts || isLoadingEnhancedBriefs) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -547,30 +611,30 @@ export default function Home() {
           </CardContent>
         </Card>
 
+        {/* Moved AssetLibrary here and wrapped the remaining content in a div */}
         <div className="space-y-8">
           <AssetLibrary />
-          
           <div className="flex justify-center">
             <Button 
               type="button" 
-              disabled={mutation.isPending}
+              disabled={createBriefMutation.isPending || isGeneratingConcepts}
               className="px-8 py-3 text-lg bg-gradient-to-r from-purple-400 to-pink-400 hover:opacity-90"
               onClick={(e) => {
                 e.preventDefault();
                 console.log('Generate Concepts button clicked');
                 form.handleSubmit((data) => {
-                  console.log('Form data:', data);
-                  mutation.mutate(data);
+                  console.log('Form data for brief creation:', data);
+                  createBriefMutation.mutate(data);
                 })();
               }}
             >
-              {mutation.isPending ? (
+              {(createBriefMutation.isPending || isGeneratingConcepts) ? (
                 <>
                   <Loader2 className="mr-2 w-5 h-5 animate-spin" />
-                  Generating...
+                  {createBriefMutation.isPending ? 'Creating Brief...' : 'Generating Concepts...'}
                 </>
               ) : (
-                'Generate Concepts'
+                'Create Concepts'
               )}
             </Button>
           </div>
@@ -588,7 +652,7 @@ export default function Home() {
           
           {generatedConcepts.map((concept, index) => (
             <Card 
-              key={index} 
+              key={concept.id || index} 
               className={`backdrop-blur-sm bg-white/5 cursor-pointer transition-all duration-200 ${
                 selectedConceptIndex === index 
                   ? 'border-2 border-purple-400 shadow-lg shadow-purple-400/20' 
@@ -734,20 +798,22 @@ export default function Home() {
                 </div>
               </CardContent>
               {selectedConceptIndex === index && (
-                <Button 
-                  onClick={() => handleSaveConcept(concept)}
-                  disabled={isSaving}
-                  className="mt-4 w-full bg-gradient-to-r from-purple-400 to-pink-400 hover:opacity-90"
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="mr-2 w-4 h-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    'Save and Continue'
-                  )}
-                </Button>
+                <CardFooter>
+                  <Button 
+                    onClick={() => handleSaveConcept(concept)}
+                    disabled={isSaving}
+                    className="mt-4 w-full bg-gradient-to-r from-purple-400 to-pink-400 hover:opacity-90"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="mr-2 w-4 h-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Select and Continue'
+                    )}
+                  </Button>
+                </CardFooter>
               )}
             </Card>
           ))}

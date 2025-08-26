@@ -7,6 +7,6 @@ export default {
   out: './supabase/migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    connectionString: process.env.DATABASE_URL!,
+    connectionString: `postgresql://postgres:${process.env.SUPABASE_KEY}@${process.env.SUPABASE_URL!.replace('https://', '').split('.')[0]}.supabase.co:5432/postgres`,
   },
 } satisfies Config;

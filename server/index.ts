@@ -12,13 +12,12 @@ console.log('Environment check:', {
   SERVER_PORT: process.env.PORT || 3001,
   VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL ? 'Set' : 'Not set',
   VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Not set',
-  DATABASE_URL: process.env.DATABASE_URL ? 'Set' : 'Not set'
 });
 
 const app = express();
 import { initializeDbAndSupabase } from "./db.js";
 
-initializeDbAndSupabase(process.env.DATABASE_URL, process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
+initializeDbAndSupabase(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
 
 // Configure CORS before any routes
 app.use((req, res, next) => {
