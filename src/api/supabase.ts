@@ -463,3 +463,108 @@ export async function downloadImageAsFile(imageUrl: string, fileName: string): P
     throw error;
   }
 }
+
+// Element Specifications APIs
+
+export interface ElementSpecification {
+  id: string;
+  user_id: string;
+  brief_id: string;
+  concept_id: string;
+  reference_image_id?: string;
+  specification_data: any;
+  ai_model_used: string;
+  prompt_used: string;
+  generated_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function createElementSpecification(
+  briefId: string,
+  conceptId: string,
+  specificationData: any,
+  promptUsed: string,
+  referenceImageId?: string,
+  aiModel: string = 'gemini-2.5-pro'
+): Promise<ElementSpecification> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const { data, error } = await supabase
+      .from('element_specifications')
+      .insert({
+        user_id: user.id,
+        brief_id: briefId,
+        concept_id: conceptId,
+        reference_image_id: referenceImageId,
+        specification_data: specificationData,
+        prompt_used: promptUsed,
+        ai_model_used: aiModel,
+        generated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error creating element specification:', error);
+    throw error;
+  }
+}
+
+export async function getElementSpecifications(
+  briefId: string,
+  conceptId?: string
+): Promise<ElementSpecification[]> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    let query = supabase
+      .from('element_specifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('brief_id', briefId);
+
+    if (conceptId) {
+      query = query.eq('concept_id', conceptId);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error getting element specifications:', error);
+    throw error;
+  }
+}
+
+export async function getLatestElementSpecification(
+  briefId: string,
+  conceptId: string
+): Promise<ElementSpecification | null> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const { data, error } = await supabase
+      .from('element_specifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('brief_id', briefId)
+      .eq('concept_id', conceptId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows returned
+    return data || null;
+  } catch (error) {
+    console.error('Error getting latest element specification:', error);
+    throw error;
+  }
+}
