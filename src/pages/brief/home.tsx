@@ -42,7 +42,17 @@ import * as z from 'zod'
 import { KeywordSuggestions } from "../../components/ui/keyword-suggestions.js";
 import { briefSuggestions } from "../../lib/brief-suggestions.js";
 import { industryTemplates } from "../../lib/industry-templates.js";
-import { briefFormSchema, type Brief, type Concept, type EnhancedBrief } from "../../shared/schema.js";
+import { briefFormSchema } from "../../shared/schema.js";
+import { 
+  getEnhancedBrief, 
+  getConceptsByBrief, 
+  selectConcept,
+  completeEnhancedBriefWorkflow,
+  Brief,
+  Concept,
+  EnhancedBriefData
+} from '../../api/supabase';
+
 
 export default function Home() {
   const { toast } = useToast();
@@ -104,11 +114,9 @@ export default function Home() {
       emotionalConnection: "",
       visualStyle: "",
       performanceMetrics: "",
-      // Removed concepts from defaultValues as they are no longer part of initial brief creation
     }
   });
 
-  // Add this to debug form state
   useEffect(() => {
     console.log('Form state:', {
       isValid: form.formState.isValid,
@@ -166,11 +174,8 @@ export default function Home() {
         const errorData = await enhanceResponse.json();
         throw new Error(errorData.message || 'Failed to enhance brief');
       }
-      const enhancedBrief: EnhancedBrief = await enhanceResponse.json();
-      setCurrentEnhancedBriefId(enhancedBrief.id);
-      console.log('Enhanced brief received:', enhancedBrief);
+      const enhancedBrief: EnhancedBriefData = await enhanceResponse.json();
 
-      // Step 2: Generate concepts from the enhanced brief
       toast({
         title: "Generating Concepts",
         description: "The AI is now generating creative concepts...",
@@ -181,9 +186,12 @@ export default function Home() {
         const errorData = await generateConceptsResponse.json();
         throw new Error(errorData.message || 'Failed to generate concepts');
       }
-      const conceptsData: Concept[] = await generateConceptsResponse.json();
-      setGeneratedConcepts(conceptsData);
-      console.log('Generated concepts received:', conceptsData);
+      const conceptsData: Omit<Concept, 'id' | 'created_at' | 'updated_at' | 'user_id'>[] = await generateConceptsResponse.json();
+
+      const { enhanced, concepts: createdConcepts } = await completeEnhancedBriefWorkflow(briefId, enhancedBrief, conceptsData);
+      setCurrentEnhancedBriefId(enhanced.id ?? null);
+      setGeneratedConcepts(createdConcepts);
+      console.log('Generated concepts received:', createdConcepts);
 
       toast({
         title: "Success",
@@ -204,13 +212,12 @@ export default function Home() {
   const fetchEnhancedBriefAndConcepts = async (briefId: string) => {
     setIsLoadingEnhancedBriefs(true); // Set loading state
     try {
-      const enhancedBriefResponse = await apiRequest("GET", `/api/briefs/${briefId}/enhanced-brief`); // Need to create this endpoint
-      if (enhancedBriefResponse.ok) {
-        const enhancedBriefData: EnhancedBrief = await enhancedBriefResponse.json();
-        setCurrentEnhancedBriefId(enhancedBriefData.id);
-        const conceptsResponse = await apiRequest("GET", `/api/briefs/${enhancedBriefData.id}/concepts`);
-        if (conceptsResponse.ok) {
-          const conceptsData: Concept[] = await conceptsResponse.json();
+      const enhancedBriefData = await getEnhancedBrief(briefId);
+
+      if (enhancedBriefData && enhancedBriefData.enhanced_brief) {
+        setCurrentEnhancedBriefId(enhancedBriefData.enhanced_brief.id ?? null);
+        const conceptsData = await getConceptsByBrief(briefId);
+        if (conceptsData) {
           setGeneratedConcepts(conceptsData);
         }
       }
@@ -275,9 +282,7 @@ export default function Home() {
     setIsSaving(true);
     try {
       // Save the selected concept ID to the backend
-      const response = await apiRequest("POST", `/api/briefs/${selectedBriefId}/select-concept`, {
-        conceptId: concept.id,
-      });
+      const response = await selectConcept(selectedBriefId, concept.id);
       
       if (!response.ok) {
         throw new Error("Failed to save selected concept");

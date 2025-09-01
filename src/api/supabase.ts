@@ -10,8 +10,21 @@ export interface Brief {
   constraints: string[];
   created_at: string;
   updated_at: string;
-  enhanced_brief?: any;
+  enhanced_brief?: EnhancedBriefData;
   enhanced_brief_updated_at?: string;
+}
+
+export interface EnhancedBriefData {
+  id?: string;
+  brief_id?: string;
+  summary: string;
+  keywords: string[];
+  sentiment: string;
+  tone: string;
+  visual_style_suggestions: string[];
+  conceptual_directions: Array<{ title: string; description: string; }>;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Concept {
@@ -19,10 +32,14 @@ export interface Concept {
   brief_id: string;
   user_id: string;
   name: string;
+  title: string; // Added title property
   description: string;
   visual_direction: string;
   key_message: string;
   execution_idea: string;
+  elements: Record<string, any>;
+  rationale: Record<string, any>;
+  midjourneyPrompts: Record<string, any>;
   created_at: string;
   updated_at: string;
 }
@@ -47,7 +64,7 @@ export interface ReferenceImage {
   file_name?: string; // Original file name
   file_size?: number; // File size in bytes
   mime_type?: string; // MIME type of the image
-  image_data: any;
+  image_data?: Record<string, any>;
   prompt_used: string;
   created_at: string;
   updated_at: string;
@@ -60,7 +77,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Enhanced Brief Workflow APIs
 
-export async function createEnhancedBrief(briefId: string, enhancedData: any) {
+export async function createEnhancedBrief(briefId: string, enhancedData: EnhancedBriefData) {
   try {
     const { data, error } = await supabase
       .from('briefs')
@@ -80,7 +97,7 @@ export async function createEnhancedBrief(briefId: string, enhancedData: any) {
   }
 }
 
-export async function getEnhancedBrief(briefId: string) {
+export async function getEnhancedBrief(briefId: string): Promise<Brief | null> {
   try {
     const { data, error } = await supabase
       .from('briefs')
@@ -88,7 +105,10 @@ export async function getEnhancedBrief(briefId: string) {
       .eq('id', briefId)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === 'PGRST116') return null; // No rows found
+      throw error;
+    }
     return data;
   } catch (error) {
     console.error('Error getting enhanced brief:', error);
@@ -98,7 +118,7 @@ export async function getEnhancedBrief(briefId: string) {
 
 // Concept Management APIs
 
-export async function createConcepts(briefId: string, concepts: Omit<Concept, 'id' | 'created_at' | 'updated_at'>[]) {
+export async function createConcepts(briefId: string, concepts: Omit<Concept, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
@@ -122,7 +142,7 @@ export async function createConcepts(briefId: string, concepts: Omit<Concept, 'i
   }
 }
 
-export async function getConceptsByBrief(briefId: string) {
+export async function getConceptsByBrief(briefId: string): Promise<Concept[]> {
   try {
     const { data, error } = await supabase
       .from('concepts')
@@ -131,7 +151,7 @@ export async function getConceptsByBrief(briefId: string) {
       .order('created_at', { ascending: true });
 
     if (error) throw error;
-    return data;
+    return data || [];
   } catch (error) {
     console.error('Error getting concepts:', error);
     throw error;
@@ -181,7 +201,10 @@ export async function getSelectedConcept(briefId: string) {
       .eq('brief_id', briefId)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === 'PGRST116') return null; // No rows found
+      throw error;
+    }
     return data;
   } catch (error) {
     console.error('Error getting selected concept:', error);
@@ -256,7 +279,7 @@ export async function createReferenceImageWithStorage(
   briefId: string,
   imageFile: File,
   promptUsed: string,
-  imageData: any = {}
+  imageData: Record<string, any> = {}
 ): Promise<ReferenceImage> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -267,6 +290,7 @@ export async function createReferenceImageWithStorage(
 
     // Create reference image record
     const referenceImage = await createReferenceImage({
+      user_id: user.id,
       brief_id: briefId,
       concept_id: conceptId,
       image_url: '', // Will be generated via signed URL when needed
@@ -285,7 +309,7 @@ export async function createReferenceImageWithStorage(
   }
 }
 
-export async function getReferenceImages(briefId: string) {
+export async function getReferenceImages(briefId: string): Promise<ReferenceImage[]> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
@@ -298,7 +322,7 @@ export async function getReferenceImages(briefId: string) {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data;
+    return data || [];
   } catch (error) {
     console.error('Error getting reference images:', error);
     throw error;
@@ -368,8 +392,8 @@ export async function getAllReferenceImagesWithTempLinks(briefId: string, expire
 
 export async function completeEnhancedBriefWorkflow(
   briefId: string,
-  enhancedData: any,
-  concepts: Omit<Concept, 'id' | 'created_at' | 'updated_at'>[]
+  enhancedData: EnhancedBriefData,
+  concepts: Omit<Concept, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]
 ) {
   try {
     // 1. Update brief with enhanced data
@@ -395,10 +419,14 @@ export async function completeReferenceImageWorkflow(
   conceptId: string,
   imageUrl: string,
   promptUsed: string,
-  imageData: any = {}
+  imageData: Record<string, any> = {}
 ) {
   try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
     const referenceImage = await createReferenceImage({
+      user_id: user.id,
       brief_id: briefId,
       concept_id: conceptId,
       image_url: imageUrl,
@@ -421,7 +449,7 @@ export async function completeReferenceImageWorkflowWithStorage(
   conceptId: string,
   imageFile: File,
   promptUsed: string,
-  imageData: any = {}
+  imageData: Record<string, any> = {}
 ) {
   try {
     const referenceImage = await createReferenceImageWithStorage(
@@ -472,7 +500,7 @@ export interface ElementSpecification {
   brief_id: string;
   concept_id: string;
   reference_image_id?: string;
-  specification_data: any;
+  specification_data: Record<string, any>;
   ai_model_used: string;
   prompt_used: string;
   generated_at: string;
@@ -483,7 +511,7 @@ export interface ElementSpecification {
 export async function createElementSpecification(
   briefId: string,
   conceptId: string,
-  specificationData: any,
+  specificationData: Record<string, any>,
   promptUsed: string,
   referenceImageId?: string,
   aiModel: string = 'gemini-2.5-pro'
