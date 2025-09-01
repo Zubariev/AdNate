@@ -46,6 +46,10 @@ router.post('/', async (req, res) => {
     const validatedData = briefFormSchema.parse(req.body);
     console.log('Validation passed, data:', validatedData);
 
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: 'Unauthorized: User not authenticated.' });
+    }
+
     const briefToInsert: InsertBrief = {
       projectName: validatedData.projectName,
       targetAudience: validatedData.targetAudience,
@@ -58,6 +62,7 @@ router.post('/', async (req, res) => {
       emotionalConnection: validatedData.emotionalConnection || undefined,
       visualStyle: validatedData.visualStyle || undefined,
       performanceMetrics: validatedData.performanceMetrics || undefined,
+      userId: req.user.id,
       // shareId and isPublic are defaulted in the schema
     };
     

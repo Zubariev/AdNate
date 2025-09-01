@@ -265,6 +265,7 @@ class InMemoryStorage implements IStorage {
       isPublic: false,
       createdAt: new Date(),
       updatedAt: new Date(), // Add updatedAt for consistency
+      userId: uuidv4(), // Add a placeholder userId for in-memory briefs
     };
     this.items.push(brief);
 

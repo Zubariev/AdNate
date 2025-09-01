@@ -6,7 +6,7 @@ import * as schema from "@shared/schema";
 let supabase: SupabaseClient | undefined;
 let db: PostgresJsDatabase<typeof schema> | null = null;
 
-export function initializeDbAndSupabase(supabaseUrl: string | undefined, supabaseKey: string | undefined) {
+export function initializeDbAndSupabase(supabaseUrl: string | undefined, supabaseKey: string | undefined, databaseUrlOverride?: string) {
   if (supabaseUrl && supabaseKey) {
     supabase = createClient(supabaseUrl, supabaseKey, {
       auth: { autoRefreshToken: false, persistSession: false }
@@ -16,9 +16,13 @@ export function initializeDbAndSupabase(supabaseUrl: string | undefined, supabas
     supabase = undefined;
   }
 
-  if (supabaseUrl && supabaseKey) {
-    const databaseUrl = `postgresql://postgres:${supabaseKey}@${supabaseUrl.replace('https://', '').split('.')[0]}.supabase.co:5432/postgres`;
-    console.log('[server/db] Attempting to connect to Supabase project:', supabaseUrl);
+  if (databaseUrlOverride) {
+    console.log('[server/db] Attempting to connect to Supabase project using DATABASE_URL:', databaseUrlOverride);
+    db = drizzle(postgres(databaseUrlOverride), { schema });
+  } else if (supabaseUrl && supabaseKey) {
+    const projectRef = supabaseUrl.replace('https://', '').split('.')[0];
+    const databaseUrl = `postgresql://postgres:${supabaseKey}@db.${projectRef}.supabase.co:5432/postgres`;
+    console.log('[server/db] Attempting to connect to Supabase project using constructed URL:', supabaseUrl);
     db = drizzle(postgres(databaseUrl), { schema });
   } else {
     console.warn('[server/db] Supabase URL or Key not set; using in-memory storage fallback.');

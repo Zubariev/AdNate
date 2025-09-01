@@ -2,6 +2,14 @@ import express, { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 // import { setupVite, serveStatic, log } from "./vite";
 import * as dotenv from 'dotenv';
+
+import 'express';
+
+declare module 'express-serve-static-core' {
+  interface Request {
+    user?: { id: string };
+  }
+}
 // Load environment variables from the project root's .env file
 dotenv.config({ path: '../.env' });
 
@@ -15,17 +23,60 @@ console.log('Environment check:', {
 });
 
 const app = express();
-import { initializeDbAndSupabase } from "./db.js";
+import { initializeDbAndSupabase, supabase } from "./db.js";
 
-initializeDbAndSupabase(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const databaseUrl = process.env.DATABASE_URL; // Optional, for direct Drizzle connection
+
+initializeDbAndSupabase(supabaseUrl, supabaseKey, databaseUrl);
+
+app.use(async (req: Request, _res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+
+  if (!supabase) {
+    console.warn('Authentication middleware: Supabase client is not initialized.');
+    req.user = undefined; // Ensure user is undefined if Supabase is not available
+    return next();
+  }
+
+  if (authHeader) {
+    const token = authHeader.split(' ')[1];
+    if (token) {
+      console.log('Authentication middleware: Token received.');
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser(token);
+        if (error) {
+          console.error('Authentication middleware: Error getting user from token:', error.message);
+          // Do not throw error here, just log and proceed without user
+        }
+        req.user = user ? { id: user.id } : undefined;
+        console.log('Authentication middleware: User ID set:', req.user?.id);
+      } catch (error) {
+        console.error('Authentication middleware: Error authenticating user:', error);
+      }
+    } else {
+      console.log('Authentication middleware: No token part found in Authorization header.');
+    }
+  } else {
+    console.log('Authentication middleware: No Authorization header found.');
+  }
+  next();
+});
 
 // Configure CORS before any routes
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   const allowed = new Set([
     'http://localhost:5173',
+    'http://localhost:5174',
     'http://127.0.0.1:5173',
-    'http://0.0.0.0:5173'
+    'http://127.0.0.1:5174',
+    'http://127.0.0.1:3001',
+    'http://127.0.0.1:3001/api/briefs',
+    'http://0.0.0.0:5173',
+    'http://0.0.0.0:5174',
+    'http://localhost:4000'
   ]);
   if (origin && allowed.has(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -33,7 +84,7 @@ app.use((req, res, next) => {
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(204);
   }
