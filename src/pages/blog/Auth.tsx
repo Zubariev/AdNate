@@ -1,30 +1,40 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../components/auth/AuthProvider";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { useToast } from "../../components/ui/use-toast";
+import { useToast } from "../../hooks/use-toast";
 
 export function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { signIn, signUp } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      let result;
       if (isLogin) {
-        await signIn(email, password);
+        result = await signIn(email, password);
       } else {
-        await signUp(email, password);
+        result = await signUp(email, password);
       }
-      const { toast } = useToast();
+      
+      if (result.error) {
+        throw new Error(result.error.message);
+      }
+      
       toast({
         title: "Success",
         description: isLogin ? "Logged in successfully!" : "Account created successfully!",
       });
+      
+      // Redirect to brief page after successful auth
+      navigate("/brief");
     } catch (error: any) {
-      const { toast } = useToast();
       toast({
         title: "Error",
         description: error.message,

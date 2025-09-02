@@ -96,7 +96,7 @@ A modern, full-featured design editor and blog platform built with React, TypeSc
    GEMINI_API_KEY=your_gemini_api_key
    
    # Server Configuration
-   PORT=5000
+   PORT=5001
    NODE_ENV=development
    ```
    
@@ -134,21 +134,40 @@ This project is optimized for deployment on Replit:
 
 ```
 src/
-├── api/              # External API integrations
+├── api/              # External API integrations (AI, Supabase, HuggingFace)
 ├── components/       # React components
-│   ├── auth/         # Authentication components
-│   ├── blog/         # Blog-related components
+│   ├── auth/         # Authentication components (AuthProvider, ProtectedRoute)
+│   ├── blog/         # Blog-related components (BlogCard, CommentSection)
 │   ├── ui/           # shadcn/ui components
-│   └── ...           # Design editor components
-├── lib/              # Utility libraries
-├── pages/            # Page components
-├── stores/           # State management
+│   └── ...           # Design editor components (Canvas, DesignEditor, LayerPanel, PropertiesPanel, Toolbar, etc.)
+├── data/             # Static data (e.g., blog posts)
+├── hooks/            # Reusable React hooks
+├── integrations/     # Third-party service integrations (e.g., Supabase client)
+├── lib/              # Utility libraries (API client, database operations, validations, etc.)
+├── pages/            # Page components (Admin, Blog, Brief, LandingPage)
+├── stores/           # State management with Zustand (e.g., designStore)
+├── styles/           # Global styles and component-specific styles
 ├── types/            # TypeScript type definitions
-└── styles/           # Global styles
+└── ...               # Main application files (App.tsx, main.tsx, routes.tsx)
+
+server/
+├── api/              # Server-side API endpoints (briefs)
+├── lib/              # Server-side utility libraries (Gemini)
+├── index.ts          # Main server entry point
+└── ...               # Other server-side files (db.ts, routes.ts, storage.ts)
+
+shared/
+├── briefs/           # Shared brief definitions
+├── schema.ts         # Shared Zod schemas for validation
+└── types/            # Shared TypeScript type definitions
 
 supabase/
-├── migrations/       # Database migrations
-└── config.toml       # Supabase configuration
+├── migrations/       # Database migration files
+└── config.toml       # Supabase CLI configuration
+
+public/
+└── ...               # Static assets (icons, images)
+
 ```
 
 ## 🎯 Usage

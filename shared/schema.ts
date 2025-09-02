@@ -20,6 +20,11 @@ export const briefs = pgTable("briefs", {
   isPublic: boolean("is_public").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(), // Add updatedAt
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+});
+
+export const users = pgTable("users", { // Define a minimal users table for reference
+  id: uuid("id").primaryKey(),
 });
 
 export const enhancedBriefs = pgTable("enhanced_briefs", {
@@ -62,6 +67,7 @@ export const insertBriefSchema = createInsertSchema(briefs).pick({
   performanceMetrics: true,
   shareId: true,
   isPublic: true,
+  userId: true,
 });
 
 export const insertEnhancedBriefSchema = createInsertSchema(enhancedBriefs).pick({

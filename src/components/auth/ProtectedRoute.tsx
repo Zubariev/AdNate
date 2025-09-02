@@ -2,7 +2,6 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 import { ReactNode } from "react";
-import { ROUTE_PATHS } from "../../routes";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -25,7 +24,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   if (!user) {
-    return <Navigate to={ROUTE_PATHS.AUTH} replace />;
+    return <Navigate to="/auth" replace />;
   }
 
   return <>{children}</>;

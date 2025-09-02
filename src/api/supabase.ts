@@ -27,6 +27,12 @@ export interface EnhancedBriefData {
   updated_at?: string;
 }
 
+export interface EnhancedBriefResponse {
+  id: string;
+  enhanced_brief: EnhancedBriefData | null;
+  enhanced_brief_updated_at: string | null;
+}
+
 export interface Concept {
   id: string;
   brief_id: string;
@@ -37,9 +43,9 @@ export interface Concept {
   visual_direction: string;
   key_message: string;
   execution_idea: string;
-  elements: Record<string, any>;
-  rationale: Record<string, any>;
-  midjourneyPrompts: Record<string, any>;
+  elements: Record<string, unknown>;
+  rationale: Record<string, unknown>;
+  midjourneyPrompts: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -64,7 +70,7 @@ export interface ReferenceImage {
   file_name?: string; // Original file name
   file_size?: number; // File size in bytes
   mime_type?: string; // MIME type of the image
-  image_data?: Record<string, any>;
+  image_data?: Record<string, unknown>;
   prompt_used: string;
   created_at: string;
   updated_at: string;
@@ -97,7 +103,7 @@ export async function createEnhancedBrief(briefId: string, enhancedData: Enhance
   }
 }
 
-export async function getEnhancedBrief(briefId: string): Promise<Brief | null> {
+export async function getEnhancedBrief(briefId: string): Promise<EnhancedBriefResponse | null> {
   try {
     const { data, error } = await supabase
       .from('briefs')
@@ -279,7 +285,7 @@ export async function createReferenceImageWithStorage(
   briefId: string,
   imageFile: File,
   promptUsed: string,
-  imageData: Record<string, any> = {}
+  imageData: Record<string, unknown> = {}
 ): Promise<ReferenceImage> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -419,7 +425,7 @@ export async function completeReferenceImageWorkflow(
   conceptId: string,
   imageUrl: string,
   promptUsed: string,
-  imageData: Record<string, any> = {}
+  imageData: Record<string, unknown> = {}
 ) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -449,7 +455,7 @@ export async function completeReferenceImageWorkflowWithStorage(
   conceptId: string,
   imageFile: File,
   promptUsed: string,
-  imageData: Record<string, any> = {}
+  imageData: Record<string, unknown> = {}
 ) {
   try {
     const referenceImage = await createReferenceImageWithStorage(
@@ -500,7 +506,7 @@ export interface ElementSpecification {
   brief_id: string;
   concept_id: string;
   reference_image_id?: string;
-  specification_data: Record<string, any>;
+  specification_data: Record<string, unknown>;
   ai_model_used: string;
   prompt_used: string;
   generated_at: string;
@@ -511,7 +517,7 @@ export interface ElementSpecification {
 export async function createElementSpecification(
   briefId: string,
   conceptId: string,
-  specificationData: Record<string, any>,
+  specificationData: Record<string, unknown>,
   promptUsed: string,
   referenceImageId?: string,
   aiModel: string = 'gemini-2.5-pro'

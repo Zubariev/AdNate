@@ -4,8 +4,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clipboard, Loader2, Share } from "lucide-react";
 import { useToast } from "../../hooks/use-toast.js";
+import { useAuth } from "../../components/auth/AuthProvider.js";
 import { AssetLibrary } from "../../components/ui/asset-library.js";
-import { apiRequest } from "../../lib/queryClient.js";
+import { apiClient } from "../../lib/apiClient.js";
 import {
   Card,
   CardContent,
@@ -56,6 +57,7 @@ import {
 
 export default function Home() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedBriefId, setSelectedBriefId] = useState<string | null>(null);
   const [generatedConcepts, setGeneratedConcepts] = useState<Concept[]>([]);
@@ -70,14 +72,13 @@ export default function Home() {
 
   // Query to fetch briefs
   const { data: briefs = [], isLoading: isLoadingBriefs } = useQuery<Brief[]>({
-    queryKey: ['/api/briefs'],
+    queryKey: ['/briefs'],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/briefs");
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to fetch briefs');
+      const response = await apiClient.get<Brief[]>("/briefs");
+      if (response.error) {
+        throw new Error(response.error || 'Failed to fetch briefs');
       }
-      return response.json();
+      return response.data || [];
     },
   });
 
@@ -129,12 +130,11 @@ export default function Home() {
     mutationFn: async (formData: z.infer<typeof briefFormSchema>) => {
       console.log('Starting brief creation mutation with data:', formData);
       try {
-        const response = await apiRequest("POST", "/api/briefs", formData);
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to create brief');
+        const response = await apiClient.post<Brief>("/briefs", formData);
+        if (response.error) {
+          throw new Error(response.error || 'Failed to create brief');
         }
-        const data: Brief = await response.json();
+        const data: Brief = response.data!;
         console.log('Parsed brief creation response data:', data);
         return data;
       } catch (error) {
@@ -169,24 +169,22 @@ export default function Home() {
         description: "Your brief is being enhanced by the AI...",
         duration: 5000
       });
-      const enhanceResponse = await apiRequest("POST", `/api/briefs/${briefId}/enhance`);
-      if (!enhanceResponse.ok) {
-        const errorData = await enhanceResponse.json();
-        throw new Error(errorData.message || 'Failed to enhance brief');
+      const enhanceResponse = await apiClient.post<EnhancedBriefData>(`/api/briefs/${briefId}/enhance`, {});
+      if (enhanceResponse.error) {
+        throw new Error(enhanceResponse.error || 'Failed to enhance brief');
       }
-      const enhancedBrief: EnhancedBriefData = await enhanceResponse.json();
+      const enhancedBrief: EnhancedBriefData = enhanceResponse.data!;
 
       toast({
         title: "Generating Concepts",
         description: "The AI is now generating creative concepts...",
         duration: 10000
       });
-      const generateConceptsResponse = await apiRequest("POST", `/api/briefs/${enhancedBrief.id}/generate-concepts`);
-      if (!generateConceptsResponse.ok) {
-        const errorData = await generateConceptsResponse.json();
-        throw new Error(errorData.message || 'Failed to generate concepts');
+      const generateConceptsResponse = await apiClient.post<Omit<Concept, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]>(`/api/briefs/${briefId}/generate-concepts`, {});
+      if (generateConceptsResponse.error) {
+        throw new Error(generateConceptsResponse.error || 'Failed to generate concepts');
       }
-      const conceptsData: Omit<Concept, 'id' | 'created_at' | 'updated_at' | 'user_id'>[] = await generateConceptsResponse.json();
+      const conceptsData: Omit<Concept, 'id' | 'created_at' | 'updated_at' | 'user_id'>[] = generateConceptsResponse.data!;
 
       const { enhanced, concepts: createdConcepts } = await completeEnhancedBriefWorkflow(briefId, enhancedBrief, conceptsData);
       setCurrentEnhancedBriefId(enhanced.id ?? null);
@@ -239,11 +237,13 @@ export default function Home() {
 
   const shareMutation = useMutation({
     mutationFn: async (briefId: string) => {
-      const response = await apiRequest("POST", `/api/briefs/${briefId}/share`);
-      const data = await response.json();
-      return data;
+      const response = await apiClient.post(`/api/briefs/${briefId}/share`, {});
+      if (response.error) {
+        throw new Error(response.error || 'Failed to share brief');
+      }
+      return response.data;
     },
-    onSuccess: (data) => {
+    onSuccess: (data: { shareUrl: string }) => {
       const shareUrl = `${window.location.origin}${data.shareUrl}`;
       navigator.clipboard.writeText(shareUrl);
       toast({
@@ -323,6 +323,11 @@ export default function Home() {
             <p className="text-gray-300">
               Generate concepts from your marketing requirements
             </p>
+            {user && (
+              <p className="text-sm text-purple-300">
+                Welcome, {user.email}!
+              </p>
+            )}
           </div>
           <Card className="text-blue-500 bg-clip-text to-pink-400 border-0 om-purple-400 bobg-gradient-to-r">
               <CardHeader>
@@ -702,30 +707,30 @@ export default function Home() {
                         <div className="space-y-3">
                           <div>
                             <h4 className="font-medium text-purple-400">Background</h4>
-                            <p className="text-sm text-muted-foreground">{concept.elements.background}</p>
+                            <p className="text-sm text-muted-foreground">{concept.elements.background as string}</p>
                           </div>
                           <div>
                             <h4 className="font-medium text-purple-400">Graphics</h4>
-                            <p className="text-sm text-muted-foreground">{concept.elements.graphics}</p>
+                            <p className="text-sm text-muted-foreground">{concept.elements.graphics as string}</p>
                           </div>
                           <div>
                             <h4 className="font-medium text-purple-400">Text Content</h4>
-                            <p className="text-sm text-muted-foreground">{concept.elements.text}</p>
+                            <p className="text-sm text-muted-foreground">{concept.elements.text as string}</p>
                           </div>
                         </div>
                         <div className="space-y-3">
                           <div>
                             <h4 className="font-medium text-pink-400">Layout</h4>
-                            <p className="text-sm text-muted-foreground">{concept.elements.layout}</p>
+                            <p className="text-sm text-muted-foreground">{concept.elements.layout as string}</p>
                           </div>
                           <div>
                             <h4 className="font-medium text-pink-400">Typography</h4>
-                            <p className="text-sm text-muted-foreground">{concept.elements.typography}</p>
+                            <p className="text-sm text-muted-foreground">{concept.elements.typography as string}</p>
                           </div>
                           {concept.elements.animation && (
                             <div>
                               <h4 className="font-medium text-pink-400">Animation</h4>
-                              <p className="text-sm text-muted-foreground">{concept.elements.animation}</p>
+                              <p className="text-sm text-muted-foreground">{concept.elements.animation as string}</p>
                             </div>
                           )}
                         </div>
@@ -740,21 +745,21 @@ export default function Home() {
                         <div className="space-y-3">
                           <div>
                             <h4 className="font-medium text-blue-400">Target Audience Appeal</h4>
-                            <p className="text-sm text-muted-foreground">{concept.rationale.targetAudienceAppeal}</p>
+                            <p className="text-sm text-muted-foreground">{concept.rationale.targetAudienceAppeal as string}</p>
                           </div>
                           <div>
                             <h4 className="font-medium text-blue-400">Brand Alignment</h4>
-                            <p className="text-sm text-muted-foreground">{concept.rationale.brandAlignment}</p>
+                            <p className="text-sm text-muted-foreground">{concept.rationale.brandAlignment as string}</p>
                           </div>
                         </div>
                         <div className="space-y-3">
                           <div>
                             <h4 className="font-medium text-green-400">Messaging Strategy</h4>
-                            <p className="text-sm text-muted-foreground">{concept.rationale.messagingStrategy}</p>
+                            <p className="text-sm text-muted-foreground">{concept.rationale.messagingStrategy as string}</p>
                           </div>
                           <div>
                             <h4 className="font-medium text-green-400">Visual Hierarchy</h4>
-                            <p className="text-sm text-muted-foreground">{concept.rationale.visualHierarchy}</p>
+                            <p className="text-sm text-muted-foreground">{concept.rationale.visualHierarchy as string}</p>
                           </div>
                         </div>
                       </div>
@@ -772,13 +777,13 @@ export default function Home() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => copyToClipboard(prompt)}
+                                onClick={() => copyToClipboard(prompt as string)}
                                 className="hover:bg-purple-400/20"
                               >
                                 <Clipboard className="w-4 h-4" />
                               </Button>
                             </div>
-                            <p className="p-3 font-mono text-sm rounded text-muted-foreground bg-slate-800/50">{prompt}</p>
+                            <p className="p-3 font-mono text-sm rounded text-muted-foreground bg-slate-800/50">{prompt as string}</p>
                           </div>
                         ))}
                       </div>

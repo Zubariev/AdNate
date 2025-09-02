@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../api/supabase";
 import type { User } from "@supabase/supabase-js";
 import { useLocation } from 'react-router-dom';
+import { apiClient } from "../../lib/apiClient";
 
 interface AuthContextType {
   user: User | null;
@@ -81,6 +82,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Initialize auth state and set up listeners
   useEffect(() => {
+    // Set up token provider for apiClient
+    apiClient.setAuthToken(async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      return session?.access_token || null;
+    });
+
     // Get initial session
     const getInitialSession = async () => {
       try {
@@ -185,9 +192,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Show session expired message
   if (sessionExpired) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <h2 className="text-lg font-semibold text-yellow-800 mb-2">Session Expired</h2>
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="p-6 text-center bg-yellow-50 rounded-lg border border-yellow-200">
+          <h2 className="mb-2 text-lg font-semibold text-yellow-800">Session Expired</h2>
           <p className="text-yellow-700">Your session has expired. Redirecting to login...</p>
         </div>
       </div>
