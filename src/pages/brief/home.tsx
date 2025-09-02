@@ -69,6 +69,7 @@ export default function Home() {
   const [currentEnhancedBriefId, setCurrentEnhancedBriefId] = useState<string | null>(null);
   const [isGeneratingConcepts, setIsGeneratingConcepts] = useState(false);
   const [isLoadingEnhancedBriefs, setIsLoadingEnhancedBriefs] = useState(false); // New loading state
+  const [hasAttemptedFetchEnhanced, setHasAttemptedFetchEnhanced] = useState<string | null>(null); // New state to prevent infinite fetch loop
 
   // Query to fetch briefs
   const { data: briefs = [], isLoading: isLoadingBriefs } = useQuery<Brief[]>({
@@ -87,7 +88,7 @@ export default function Home() {
     if (briefs.length > 0) {
       const lastBrief = briefs[briefs.length - 1];
       // Only update if a new brief is available or if currentBriefData is null
-      if (!currentBriefData || lastBrief.id !== currentBriefData.id) {
+      if (!currentBriefData || lastBrief.id !== currentBriefData?.id) {
         setSelectedBriefId(lastBrief.id);
         setCurrentBriefData(lastBrief);
       }
@@ -96,10 +97,13 @@ export default function Home() {
 
   // Effect to fetch enhanced brief and concepts when selectedBriefId changes or currentEnhancedBriefId is null
   useEffect(() => {
-    if (selectedBriefId && !currentEnhancedBriefId && !isLoadingEnhancedBriefs) {
+    // Only attempt to fetch if a brief is selected, no enhanced brief is currently loaded,
+    // we are not generating concepts, and we haven't already attempted to fetch for this briefId.
+    if (selectedBriefId && !currentEnhancedBriefId && !isGeneratingConcepts && hasAttemptedFetchEnhanced !== selectedBriefId) {
+      setHasAttemptedFetchEnhanced(selectedBriefId); // Mark that we've attempted to fetch for this brief
       fetchEnhancedBriefAndConcepts(selectedBriefId);
     }
-  }, [selectedBriefId, currentEnhancedBriefId, isLoadingEnhancedBriefs]);
+  }, [selectedBriefId, currentEnhancedBriefId, isGeneratingConcepts, hasAttemptedFetchEnhanced]);
 
   const form = useForm<z.infer<typeof briefFormSchema>>({
     resolver: zodResolver(briefFormSchema),
@@ -147,6 +151,7 @@ export default function Home() {
       setSelectedBriefId(data.id);
       setCurrentBriefData(data);
       queryClient.invalidateQueries({ queryKey: ['/api/briefs'] });
+      setHasAttemptedFetchEnhanced(null); // Reset for new brief
       // Now trigger the enhancement and concept generation
       enhanceAndGenerateConcepts(data.id);
     },

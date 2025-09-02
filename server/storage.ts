@@ -4,15 +4,15 @@ import { Brief, briefs, Concept, concepts, InsertBrief, InsertConcept, InsertSel
 import { eq } from 'drizzle-orm';
 import { desc } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid'; // Import uuid
-
+import { EnhancedBrief, InsertEnhancedBrief } from "./api/supabase";
 export interface IStorage {
   createBrief(brief: InsertBrief): Promise<Brief>;
   getBrief(id: string): Promise<Brief | null>;
-  // getBriefByShareId(shareId: string): Promise<Brief | null>; // Removed
+  getBriefByShareId(shareId: string): Promise<Brief | null>; // Removed
   getAllBriefs(): Promise<Brief[]>;
-  // updateBriefShare(id: string, isPublic: boolean): Promise<Brief>; // Removed
-  // createEnhancedBrief(enhancedBrief: InsertEnhancedBrief): Promise<EnhancedBrief>; // Removed
-  // getEnhancedBriefByBriefId(briefId: string): Promise<EnhancedBrief | null>; // Removed
+  updateBriefShare(id: string, isPublic: boolean): Promise<Brief>; // Removed
+  createEnhancedBrief(enhancedBrief: InsertEnhancedBrief): Promise<EnhancedBrief>; // Removed
+  getEnhancedBriefByBriefId(briefId: string): Promise<EnhancedBrief | null>; // Removed
   saveConcept(briefId: string, concept: Omit<InsertConcept, 'briefId'>): Promise<Concept>;
   getConceptsByBriefId(briefId: string): Promise<Concept[]>;
   saveSelectedConcept(selectedConcept: InsertSelectedConcept): Promise<SelectedConcept>;
@@ -63,26 +63,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Removed getBriefByShareId
-  // async getBriefByShareId(shareId: string): Promise<Brief | null> {
-  //   if (!db) {
-  //     console.warn('Drizzle DB not initialized, falling back to in-memory storage for getBriefByShareId.');
-  //     return InMemoryStorage.instance.getBriefByShareId(shareId);
-  //   }
+  async getBriefByShareId(shareId: string): Promise<Brief | null> {
+    if (!db) {
+      console.warn('Drizzle DB not initialized, falling back to in-memory storage for getBriefByShareId.');
+      return InMemoryStorage.instance.getBriefByShareId(shareId);
+    }
 
-  //   try {
-  //     const briefResult = await db!.select().from(briefs).where(eq(briefs.shareId, shareId)).limit(1);
+    try {
+      const briefResult = await db!.select().from(briefs).where(eq(briefs.shareId, shareId)).limit(1);
 
-  //     if (!briefResult || briefResult.length === 0) {
-  //       return null;
-  //     }
-  //     const brief = briefResult[0];
+      if (!briefResult || briefResult.length === 0) {
+        return null;
+      }
+      const brief = briefResult[0];
 
-  //     return brief;
-  //   } catch (error) {
-  //     console.error('Supabase brief retrieval by shareId failed:', error);
-  //     return InMemoryStorage.instance.getBriefByShareId(shareId);
-  //   }
-  // }
+      return brief;
+    } catch (error) {
+      console.error('Supabase brief retrieval by shareId failed:', error);
+      return InMemoryStorage.instance.getBriefByShareId(shareId);
+    }
+  }
 
   async getAllBriefs(): Promise<Brief[]> {
     if (!db) {

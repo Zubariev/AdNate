@@ -3,11 +3,12 @@ import { storage } from '../storage.js';
 import { enhanceBrief, generateConceptsFromEnhancedBrief, BriefInput, EnhancedBriefOutput } from '../lib/gemini.js';
 import { briefFormSchema, InsertBrief, InsertConcept, RawConcept, InsertEnhancedBrief, InsertSelectedConcept } from "@shared/schema.ts";
 import { ZodError } from 'zod';
+import { protect } from '../middleware/auth.js';
 
 const router = Router();
 
 // Basic GET routes to support client queries
-router.get('/', async (_req, res) => {
+router.get('/', protect, async (_req, res) => {
   const list = await storage.getAllBriefs();
   res.json(list);
 });
@@ -19,7 +20,7 @@ router.get('/share/:shareId', async (req, res) => {
 });
 
 // New endpoint to get an enhanced brief by briefId
-router.get('/:briefId/enhanced-brief', async (req, res) => {
+router.get('/:briefId/enhanced-brief', protect, async (req, res) => {
   try {
     const { briefId } = req.params;
     const enhancedBrief = await storage.getEnhancedBriefByBriefId(briefId);
@@ -33,13 +34,13 @@ router.get('/:briefId/enhanced-brief', async (req, res) => {
   }
 });
 
-router.post('/:id/share', async (req, res) => {
+router.post('/:id/share', protect, async (req, res) => {
   const id = req.params.id;
   const brief = await storage.updateBriefShare(id, true);
   res.json({ shareUrl: `/share/${brief.shareId}` });
 });
 
-router.post('/', async (req, res) => {
+router.post('/', protect, async (req, res) => {
   try {
     console.log('Request body for initial brief creation:', req.body);
     
@@ -47,6 +48,8 @@ router.post('/', async (req, res) => {
     console.log('Validation passed, data:', validatedData);
 
     if (!req.user || !req.user.id) {
+      // This check is now redundant with the `protect` middleware, 
+      // but keeping it for clarity that a user is expected.
       return res.status(401).json({ message: 'Unauthorized: User not authenticated.' });
     }
 
@@ -81,7 +84,7 @@ router.post('/', async (req, res) => {
 });
 
 // New endpoint to enhance a brief
-router.post('/:briefId/enhance', async (req, res) => {
+router.post('/:briefId/enhance', protect, async (req, res) => {
   try {
     const { briefId } = req.params;
     console.log(`Attempting to enhance brief with ID: ${briefId}`);
@@ -127,7 +130,7 @@ router.post('/:briefId/enhance', async (req, res) => {
 });
 
 // New endpoint to generate concepts from an enhanced brief
-router.post('/:enhancedBriefId/generate-concepts', async (req, res) => {
+router.post('/:enhancedBriefId/generate-concepts', protect, async (req, res) => {
   try {
     const { enhancedBriefId } = req.params;
     console.log(`Attempting to generate concepts for enhanced brief with ID: ${enhancedBriefId}`);
@@ -165,7 +168,7 @@ router.post('/:enhancedBriefId/generate-concepts', async (req, res) => {
 });
 
 // New endpoint to save a selected concept
-router.post('/:briefId/select-concept', async (req, res) => {
+router.post('/:briefId/select-concept', protect, async (req, res) => {
   try {
     const { briefId } = req.params;
     const { conceptId } = req.body;
@@ -188,7 +191,7 @@ router.post('/:briefId/select-concept', async (req, res) => {
 });
 
 // Get concepts for an enhanced brief
-router.get('/:enhancedBriefId/concepts', async (req, res) => {
+router.get('/:enhancedBriefId/concepts', protect, async (req, res) => {
   try {
     const { enhancedBriefId } = req.params;
     
@@ -210,7 +213,7 @@ router.get('/:enhancedBriefId/concepts', async (req, res) => {
 });
 
 // Get selected concept for a brief
-router.get('/:briefId/selected-concept', async (req, res) => {
+router.get('/:briefId/selected-concept', protect, async (req, res) => {
   try {
     const { briefId } = req.params;
     const selectedConcept = await storage.getSelectedConceptByBriefId(briefId);

@@ -409,7 +409,7 @@ export async function completeEnhancedBriefWorkflow(
 ) {
   try {
     // 1. Update brief with enhanced data
-    await createEnhancedBrief(briefId, enhancedData);
+    await enhancedBriefs(briefId, enhancedData);
 
     // 2. Create concepts
     const createdConcepts = await createConcepts(briefId, concepts);
