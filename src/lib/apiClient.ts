@@ -109,7 +109,6 @@ class ApiClient {
           body: body ? JSON.stringify(body) : undefined,
           signal: controller.signal,
           credentials: 'same-origin', 
-          mode: 'cors',
           cache: 'no-cache'
         });
 

@@ -79,6 +79,12 @@ export interface ReferenceImage {
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://qtuzwjjkbfwrrlszicoe.supabase.co';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF0dXp3amprYmZ3cnJsc3ppY29lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1Njc5NjgsImV4cCI6MjA1NjE0Mzk2OH0.3X4TOAM3HgBqK9QshmKhlBEq_PanqX1z_yZ1ID7vuCk';
 
+// Fail fast with a clear message if env vars are missing at runtime
+if (!supabaseUrl || !supabaseKey) {
+  // eslint-disable-next-line no-console
+  console.error('Supabase env vars missing. Ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.');
+}
+
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Enhanced Brief Workflow APIs

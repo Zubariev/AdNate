@@ -9,6 +9,7 @@ import { DesignEditor } from './components/DesignEditor';
 import { DesignsList } from './components/DesignsList';
 import Home from './pages/brief/home';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { BrowserRouter, Routes } from 'react-router-dom';
 
 export const routes: RouteObject[] = [
   {

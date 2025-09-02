@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Sparkles, BookOpen } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../api/supabase';
 
 const LandingPage = () => {
   const navigate = useNavigate();

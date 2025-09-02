@@ -1,5 +1,5 @@
 
-import { supabase } from './supabase';
+import { supabase } from '../api/supabase';
 import { validateDesign, validateDesignElement } from './validations';
 import { sanitizeDesignText } from './sanitization';
 import type { DesignElement } from '../types';

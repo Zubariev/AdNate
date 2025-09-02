@@ -30,5 +30,3 @@ export function initializeDbAndSupabase(supabaseUrl: string | undefined, supabas
   }
   return { db, supabase };
 }
-
-export { db, supabase };

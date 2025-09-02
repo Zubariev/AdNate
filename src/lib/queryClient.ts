@@ -12,7 +12,6 @@ export async function apiRequest(method: string, path: string, body?: unknown) {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      mode: 'cors',
       credentials: 'include',
       body: body ? JSON.stringify(body) : undefined
     });

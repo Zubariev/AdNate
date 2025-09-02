@@ -1,47 +1,39 @@
-import { pgTable, text, uuid, jsonb, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, jsonb, timestamp } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm"; // Import sql
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const briefs = pgTable("briefs", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`), // Changed to uuid and added defaultRandom()
-  projectName: text("project_name").notNull(),
-  targetAudience: text("target_audience").notNull(),
-  keyMessage: text("key_message").notNull(),
-  brandGuidelines: text("brand_guidelines").notNull(),
-  bannerSizes: text("banner_sizes").notNull(),
-  brandContext: text("brand_context"),
-  objective: text("objective"),
-  consumerJourney: text("consumer_journey"),
-  emotionalConnection: text("emotional_connection"),
-  visualStyle: text("visual_style"),
-  performanceMetrics: text("performance_metrics"),
-  shareId: text("share_id").default(sql`gen_random_uuid()`).notNull().unique(), // Changed to use UUID and make it unique
-  isPublic: boolean("is_public").default(false),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(), // Add updatedAt
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  projectName: text("projectname"),
+  targetAudience: text("targetaudience"),
+  keyMessage: text("keymessage"),
+  brandGuidelines: text("brandguidelines"),
+  bannerSizes: text("bannersizes"),
+  brandContext: text("brandcontext"),
+  objective: text("objective"),
+  consumerJourney: text("consumerjourney"),
+  emotionalConnection: text("emotionalconnection"),
+  visualStyle: text("visualstyle"),
+  performanceMetrics: text("performancemetrics"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  enhancedBrief: jsonb("enhanced_brief"),
+  enhancedBriefUpdatedAt: timestamp("enhanced_brief_updated_at"),
 });
 
 export const users = pgTable("users", { // Define a minimal users table for reference
   id: uuid("id").primaryKey(),
 });
 
-export const enhancedBriefs = pgTable("enhanced_briefs", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`), // Changed to uuid and added defaultRandom()
-  briefId: uuid("brief_id").notNull().references(() => briefs.id, { onDelete: "cascade" }),
-  enhancedContent: jsonb("enhanced_content").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
 export const concepts = pgTable("concepts", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`), // Changed to uuid and added defaultRandom()
-  enhancedBriefId: uuid("enhanced_brief_id").notNull().references(() => enhancedBriefs.id, { onDelete: "cascade" }),
+  briefId: uuid("brief_id").notNull().references(() => briefs.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description"),
-  elements: jsonb("elements"),
-  midjourneyPrompts: jsonb("midjourney_prompts"),
-  rationale: jsonb("rationale"),
+  elements: jsonb("elements").default(sql`'{}'::jsonb`), // Added default value
+  midjourneyPrompts: jsonb("midjourney_prompts").default(sql`'{}'::jsonb`), // Changed column name and added default
+  rationale: jsonb("rationale").default(sql`'{}'::jsonb`), // Added default value
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -65,18 +57,13 @@ export const insertBriefSchema = createInsertSchema(briefs).pick({
   emotionalConnection: true,
   visualStyle: true,
   performanceMetrics: true,
-  shareId: true,
-  isPublic: true,
   userId: true,
-});
-
-export const insertEnhancedBriefSchema = createInsertSchema(enhancedBriefs).pick({
-  briefId: true,
-  enhancedContent: true,
+  enhancedBrief: true,
+  enhancedBriefUpdatedAt: true,
 });
 
 export const insertConceptSchema = createInsertSchema(concepts).pick({
-  enhancedBriefId: true,
+  briefId: true,
   title: true,
   description: true,
   elements: true,
@@ -90,22 +77,19 @@ export const insertSelectedConceptSchema = createInsertSchema(selectedConcepts).
 });
 
 export type InsertBrief = z.infer<typeof insertBriefSchema>;
-export type InsertEnhancedBrief = z.infer<typeof insertEnhancedBriefSchema>;
 export type InsertConcept = z.infer<typeof insertConceptSchema>;
 export type InsertSelectedConcept = z.infer<typeof insertSelectedConceptSchema>;
 
-export type NewBrief = InsertBrief;
 export type Brief = typeof briefs.$inferSelect & { concepts?: Concept[] };
-export type EnhancedBrief = typeof enhancedBriefs.$inferSelect;
 export type Concept = typeof concepts.$inferSelect;
 export type SelectedConcept = typeof selectedConcepts.$inferSelect;
 
 export const briefFormSchema = z.object({
-  projectName: z.string().min(3, "Project name must be at least 3 characters"),
-  targetAudience: z.string().min(5, "Target audience description required"),
-  keyMessage: z.string().min(10, "Key message must be at least 10 characters"),
-  brandGuidelines: z.string().min(10, "Brand guidelines required"),
-  bannerSizes: z.string().min(3, "At least one banner size required"),
+  projectName: z.string().min(3, "Project name must be at least 3 characters").optional(),
+  targetAudience: z.string().min(5, "Target audience description required").optional(),
+  keyMessage: z.string().min(10, "Key message must be at least 10 characters").optional(),
+  brandGuidelines: z.string().min(10, "Brand guidelines required").optional(),
+  bannerSizes: z.string().min(3, "At least one banner size required").optional(),
   brandContext: z.string().optional(),
   objective: z.string().optional(),
   consumerJourney: z.string().optional(),

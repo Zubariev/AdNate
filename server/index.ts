@@ -1,5 +1,5 @@
 import express from "express";
-import { registerRoutes } from "./routes";
+import { registerRoutes, db, supabase } from "./routes";
 import * as dotenv from 'dotenv';
 
 import 'express';
@@ -16,8 +16,6 @@ console.log('Environment check:', {
   NODE_ENV: process.env.NODE_ENV,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY ? 'Set' : 'Not set',
   SERVER_PORT: process.env.PORT || 5001,
-  VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL ? 'Set' : 'Not set',
-  VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Not set',
 });
 
 const app = express();
@@ -26,7 +24,7 @@ const app = express();
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "http://localhost:5173"); // or "*"
   res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
   
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
@@ -43,6 +41,11 @@ app.use('/briefs', briefsRouter);
 
 (async () => {
   const server = await registerRoutes(app);
+
+  console.log('Database Initialization Status:', {
+    Drizzle_DB: db ? 'Initialized' : 'Not Initialized',
+    Supabase_Client: supabase ? 'Initialized' : 'Not Initialized',
+  });
 
   const PORT = parseInt(process.env.PORT || '5001', 10);
 

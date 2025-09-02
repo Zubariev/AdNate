@@ -5,7 +5,7 @@ import { Textarea } from "../../components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { useToast } from "../../components/ui/use-toast";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../api/supabase";
 import { sanitizeBlogContent } from "../../lib/sanitization";
 import { validateBlogPost } from "../../lib/validations";
 

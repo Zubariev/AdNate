@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../api/supabase';
 import DesignGallery from './DesignGallery.tsx';
 import { LogOut } from 'lucide-react';
 import { Database } from '../lib/database.types';
