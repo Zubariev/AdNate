@@ -18,6 +18,7 @@ export const briefs = pgTable("briefs", {
   visualStyle: text("visualstyle"),
   performanceMetrics: text("performancemetrics"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
   enhancedBrief: jsonb("enhanced_brief"),
   enhancedBriefUpdatedAt: timestamp("enhanced_brief_updated_at"),
 });
@@ -40,9 +41,12 @@ export const concepts = pgTable("concepts", {
 
 export const selectedConcepts = pgTable("selected_concepts", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`), // Changed to uuid and added defaultRandom()
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   conceptId: uuid("concept_id").notNull().references(() => concepts.id, { onDelete: "cascade" }),
   briefId: uuid("brief_id").notNull().references(() => briefs.id, { onDelete: "cascade" }), // Link to the original brief
   selectedAt: timestamp("selected_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const insertBriefSchema = createInsertSchema(briefs).pick({
@@ -74,6 +78,7 @@ export const insertConceptSchema = createInsertSchema(concepts).pick({
 export const insertSelectedConceptSchema = createInsertSchema(selectedConcepts).pick({
   conceptId: true,
   briefId: true,
+  userId: true,
 });
 
 export type InsertBrief = z.infer<typeof insertBriefSchema>;

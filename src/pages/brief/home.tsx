@@ -7,6 +7,7 @@ import { useToast } from "../../hooks/use-toast.js";
 import { useAuth } from "../../components/auth/AuthProvider.js";
 import { AssetLibrary } from "../../components/ui/asset-library.js";
 import { apiClient } from "../../lib/apiClient.js";
+import { useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -43,67 +44,48 @@ import * as z from 'zod'
 import { KeywordSuggestions } from "../../components/ui/keyword-suggestions.js";
 import { briefSuggestions } from "../../lib/brief-suggestions.js";
 import { industryTemplates } from "../../lib/industry-templates.js";
-import { briefFormSchema } from "../../shared/schema.js";
-import { 
-  getEnhancedBrief, 
-  getConceptsByBrief, 
-  selectConcept,
-  completeEnhancedBriefWorkflow,
-  Brief,
-  Concept,
-  EnhancedBriefData
-} from '../../api/supabase';
+import { briefFormSchema, Brief, Concept, RawConcept } from "../../shared/schema.js";
 
 
 export default function Home() {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedBriefId, setSelectedBriefId] = useState<string | null>(null);
   const [generatedConcepts, setGeneratedConcepts] = useState<Concept[]>([]);
   const [selectedConceptIndex, setSelectedConceptIndex] = useState<number | null>(null);
-  // const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [isSaving, setIsSaving] = useState(false);
-  const [currentBriefData, setCurrentBriefData] = useState<Brief | null>(null);
-  const [currentEnhancedBriefId, setCurrentEnhancedBriefId] = useState<string | null>(null);
-  const [isGeneratingConcepts, setIsGeneratingConcepts] = useState(false);
-  const [isLoadingEnhancedBriefs, setIsLoadingEnhancedBriefs] = useState(false); // New loading state
-  const [hasAttemptedFetchEnhanced, setHasAttemptedFetchEnhanced] = useState<string | null>(null); // New state to prevent infinite fetch loop
 
-  // Query to fetch briefs
   const { data: briefs = [], isLoading: isLoadingBriefs } = useQuery<Brief[]>({
-    queryKey: ['/briefs'],
-    queryFn: async () => {
-      const response = await apiClient.get<Brief[]>("/briefs");
-      if (response.error) {
-        throw new Error(response.error || 'Failed to fetch briefs');
-      }
-      return response.data || [];
-    },
+    queryKey: ['briefs'],
+    queryFn: async () => apiClient.get<Brief[]>("/briefs").then(res => res.data as Brief[] || []),
   });
 
-  // Effect to set the last brief and fetch enhanced brief/concepts if necessary
-  useEffect(() => {
-    if (briefs.length > 0) {
-      const lastBrief = briefs[briefs.length - 1];
-      // Only update if a new brief is available or if currentBriefData is null
-      if (!currentBriefData || lastBrief.id !== currentBriefData?.id) {
-        setSelectedBriefId(lastBrief.id);
-        setCurrentBriefData(lastBrief);
-      }
-    }
-  }, [briefs, currentBriefData]);
+  const { data: selectedBrief, isLoading: isLoadingSelectedBrief } = useQuery<Brief>({
+    queryKey: ['briefs', selectedBriefId],
+    queryFn: async () => apiClient.get<Brief>(`/briefs/${selectedBriefId}`).then(res => res.data as Brief),
+    enabled: !!selectedBriefId,
+  });
 
-  // Effect to fetch enhanced brief and concepts when selectedBriefId changes or currentEnhancedBriefId is null
+  const { data: concepts, isLoading: isLoadingConcepts } = useQuery<Concept[]>({
+      queryKey: ['concepts', selectedBriefId],
+      queryFn: async () => apiClient.get<{ savedConcepts: Concept[] }>(`/briefs/${selectedBriefId}/concepts`).then(res => (res.data as { savedConcepts: Concept[] })?.savedConcepts || []),
+      enabled: !!selectedBriefId && !!(selectedBrief as Brief)?.enhancedBrief,
+  });
+
   useEffect(() => {
-    // Only attempt to fetch if a brief is selected, no enhanced brief is currently loaded,
-    // we are not generating concepts, and we haven't already attempted to fetch for this briefId.
-    if (selectedBriefId && !currentEnhancedBriefId && !isGeneratingConcepts && hasAttemptedFetchEnhanced !== selectedBriefId) {
-      setHasAttemptedFetchEnhanced(selectedBriefId); // Mark that we've attempted to fetch for this brief
-      fetchEnhancedBriefAndConcepts(selectedBriefId);
+    if (!selectedBriefId && briefs.length > 0) {
+      setSelectedBriefId(briefs[0].id);
     }
-  }, [selectedBriefId, currentEnhancedBriefId, isGeneratingConcepts, hasAttemptedFetchEnhanced]);
+  }, [briefs, selectedBriefId]);
+  
+  useEffect(() => {
+    if (concepts) {
+      setGeneratedConcepts(concepts);
+    }
+  }, [concepts]);
 
   const form = useForm<z.infer<typeof briefFormSchema>>({
     resolver: zodResolver(briefFormSchema),
@@ -121,42 +103,19 @@ export default function Home() {
       performanceMetrics: "",
     }
   });
-
-  useEffect(() => {
-    console.log('Form state:', {
-      isValid: form.formState.isValid,
-      errors: form.formState.errors,
-      values: form.getValues()
-    });
-  }, [form.formState, form]);
-
+  
   const createBriefMutation = useMutation({
     mutationFn: async (formData: z.infer<typeof briefFormSchema>) => {
-      console.log('Starting brief creation mutation with data:', formData);
-      try {
-        const response = await apiClient.post<Brief>("/briefs", formData);
-        if (response.error) {
-          throw new Error(response.error || 'Failed to create brief');
-        }
-        const data: Brief = response.data!;
-        console.log('Parsed brief creation response data:', data);
-        return data;
-      } catch (error) {
-        console.error('Brief creation mutation error:', error);
-        throw error;
-      }
+      const response = await apiClient.post<Brief>("/briefs", formData);
+      if (response.error) throw new Error(response.error);
+      return response.data as Brief;
     },
     onSuccess: (data: Brief) => {
-      console.log('Brief creation success:', data);
+      queryClient.invalidateQueries({ queryKey: ['briefs'] });
       setSelectedBriefId(data.id);
-      setCurrentBriefData(data);
-      queryClient.invalidateQueries({ queryKey: ['/api/briefs'] });
-      setHasAttemptedFetchEnhanced(null); // Reset for new brief
-      // Now trigger the enhancement and concept generation
-      enhanceAndGenerateConcepts(data.id);
+      enhanceAndGenerateConceptsMutation.mutate(data.id);
     },
     onError: (error: Error) => {
-      console.error('Brief creation error in onError:', error);
       toast({
         title: "Error",
         description: error.message,
@@ -164,73 +123,34 @@ export default function Home() {
       });
     }
   });
-
-  const enhanceAndGenerateConcepts = async (briefId: string) => {
-    setIsGeneratingConcepts(true);
-    try {
-      // Step 1: Enhance the brief
-      toast({
-        title: "Enhancing Brief",
-        description: "Your brief is being enhanced by the AI...",
-        duration: 5000
-      });
-      const enhanceResponse = await apiClient.post<EnhancedBriefData>(`/api/briefs/${briefId}/enhance`, {});
-      if (enhanceResponse.error) {
-        throw new Error(enhanceResponse.error || 'Failed to enhance brief');
-      }
-      const enhancedBrief: EnhancedBriefData = enhanceResponse.data!;
-
-      toast({
-        title: "Generating Concepts",
-        description: "The AI is now generating creative concepts...",
-        duration: 10000
-      });
-      const generateConceptsResponse = await apiClient.post<Omit<Concept, 'id' | 'created_at' | 'updated_at' | 'user_id'>[]>(`/api/briefs/${briefId}/generate-concepts`, {});
-      if (generateConceptsResponse.error) {
-        throw new Error(generateConceptsResponse.error || 'Failed to generate concepts');
-      }
-      const conceptsData: Omit<Concept, 'id' | 'created_at' | 'updated_at' | 'user_id'>[] = generateConceptsResponse.data!;
-
-      const { enhanced, concepts: createdConcepts } = await completeEnhancedBriefWorkflow(briefId, enhancedBrief, conceptsData);
-      setCurrentEnhancedBriefId(enhanced.id ?? null);
-      setGeneratedConcepts(createdConcepts);
-      console.log('Generated concepts received:', createdConcepts);
-
+  
+  const enhanceAndGenerateConceptsMutation = useMutation({
+    mutationFn: async (briefId: string): Promise<Concept[]> => {
+      const enhanceResponse = await apiClient.post<Brief>(`/briefs/${briefId}/enhance`, {});
+      if (enhanceResponse.error) throw new Error(enhanceResponse.error);
+      
+      const conceptsResponse = await apiClient.post<Concept[]>(`/briefs/${briefId}/generate-concepts`, {});
+      if (conceptsResponse.error) throw new Error(conceptsResponse.error);
+      
+      return (conceptsResponse.data as Concept[]) || [];
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['briefs', selectedBriefId] });
+      queryClient.invalidateQueries({ queryKey: ['concepts', selectedBriefId] });
+      setGeneratedConcepts(data);
       toast({
         title: "Success",
         description: "Creative concepts generated successfully!"
       });
-    } catch (error) {
-      console.error('Error in enhanceAndGenerateConcepts:', error);
+    },
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to generate concepts",
+        description: error.message,
         variant: "destructive"
       });
-    } finally {
-      setIsGeneratingConcepts(false);
     }
-  };
-
-  const fetchEnhancedBriefAndConcepts = async (briefId: string) => {
-    setIsLoadingEnhancedBriefs(true); // Set loading state
-    try {
-      const enhancedBriefData = await getEnhancedBrief(briefId);
-
-      if (enhancedBriefData && enhancedBriefData.enhanced_brief) {
-        setCurrentEnhancedBriefId(enhancedBriefData.enhanced_brief.id ?? null);
-        const conceptsData = await getConceptsByBrief(briefId);
-        if (conceptsData) {
-          setGeneratedConcepts(conceptsData);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching enhanced brief or concepts:', error);
-    } finally {
-      // Ensure loading state is always reset
-      setIsLoadingEnhancedBriefs(false); // Use new loading state
-    }
-  }
+  });
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -241,12 +161,12 @@ export default function Home() {
   };
 
   const shareMutation = useMutation({
-    mutationFn: async (briefId: string) => {
+    mutationFn: async (briefId: string): Promise<{ shareUrl: string }> => {
       const response = await apiClient.post(`/api/briefs/${briefId}/share`, {});
       if (response.error) {
         throw new Error(response.error || 'Failed to share brief');
       }
-      return response.data;
+      return response.data as { shareUrl: string };
     },
     onSuccess: (data: { shareUrl: string }) => {
       const shareUrl = `${window.location.origin}${data.shareUrl}`;
@@ -286,18 +206,12 @@ export default function Home() {
 
     setIsSaving(true);
     try {
-      // Save the selected concept ID to the backend
-      const response = await selectConcept(selectedBriefId, concept.id);
-      
-      if (!response.ok) {
-        throw new Error("Failed to save selected concept");
-      }
-      
+      await apiClient.post(`/briefs/${selectedBriefId}/select-concept`, { conceptId: concept.id });
       toast({
         title: "Concept Selected!",
         description: `"${concept.title}" has been selected successfully`
       });
-      
+      navigate('/brief/loading');
     } catch (error) {
       console.error('Error saving selected concept:', error);
       toast({
@@ -310,7 +224,7 @@ export default function Home() {
     }
   };
 
-  if (isLoadingBriefs || isGeneratingConcepts || isLoadingEnhancedBriefs) {
+  if (isLoadingBriefs || isLoadingSelectedBrief || isLoadingConcepts) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -632,18 +546,16 @@ export default function Home() {
           <div className="flex justify-center">
             <Button 
               type="button" 
-              disabled={createBriefMutation.isPending || isGeneratingConcepts}
+              disabled={createBriefMutation.isPending || enhanceAndGenerateConceptsMutation.isPending}
               className="px-8 py-3 text-lg bg-gradient-to-r from-purple-400 to-pink-400 hover:opacity-90"
               onClick={(e) => {
                 e.preventDefault();
-                console.log('Generate Concepts button clicked');
                 form.handleSubmit((data) => {
-                  console.log('Form data for brief creation:', data);
                   createBriefMutation.mutate(data);
                 })();
               }}
             >
-              {(createBriefMutation.isPending || isGeneratingConcepts) ? (
+              {(createBriefMutation.isPending || enhanceAndGenerateConceptsMutation.isPending) ? (
                 <>
                   <Loader2 className="mr-2 w-5 h-5 animate-spin" />
                   {createBriefMutation.isPending ? 'Creating Brief...' : 'Generating Concepts...'}
@@ -712,30 +624,30 @@ export default function Home() {
                         <div className="space-y-3">
                           <div>
                             <h4 className="font-medium text-purple-400">Background</h4>
-                            <p className="text-sm text-muted-foreground">{concept.elements.background as string}</p>
+                            <p className="text-sm text-muted-foreground">{(concept.elements as RawConcept['elements'])?.background}</p>
                           </div>
                           <div>
                             <h4 className="font-medium text-purple-400">Graphics</h4>
-                            <p className="text-sm text-muted-foreground">{concept.elements.graphics as string}</p>
+                            <p className="text-sm text-muted-foreground">{(concept.elements as RawConcept['elements'])?.graphics}</p>
                           </div>
                           <div>
                             <h4 className="font-medium text-purple-400">Text Content</h4>
-                            <p className="text-sm text-muted-foreground">{concept.elements.text as string}</p>
+                            <p className="text-sm text-muted-foreground">{(concept.elements as RawConcept['elements'])?.text}</p>
                           </div>
                         </div>
                         <div className="space-y-3">
                           <div>
                             <h4 className="font-medium text-pink-400">Layout</h4>
-                            <p className="text-sm text-muted-foreground">{concept.elements.layout as string}</p>
+                            <p className="text-sm text-muted-foreground">{(concept.elements as RawConcept['elements'])?.layout}</p>
                           </div>
                           <div>
                             <h4 className="font-medium text-pink-400">Typography</h4>
-                            <p className="text-sm text-muted-foreground">{concept.elements.typography as string}</p>
+                            <p className="text-sm text-muted-foreground">{(concept.elements as RawConcept['elements'])?.typography}</p>
                           </div>
-                          {concept.elements.animation && (
+                          {typeof (concept.elements as RawConcept['elements'])?.animation === 'string' && (
                             <div>
                               <h4 className="font-medium text-pink-400">Animation</h4>
-                              <p className="text-sm text-muted-foreground">{concept.elements.animation as string}</p>
+                              <p className="text-sm text-muted-foreground">{(concept.elements as RawConcept['elements'])?.animation}</p>
                             </div>
                           )}
                         </div>
@@ -750,21 +662,21 @@ export default function Home() {
                         <div className="space-y-3">
                           <div>
                             <h4 className="font-medium text-blue-400">Target Audience Appeal</h4>
-                            <p className="text-sm text-muted-foreground">{concept.rationale.targetAudienceAppeal as string}</p>
+                            <p className="text-sm text-muted-foreground">{(concept.rationale as RawConcept['rationale'])?.targetAudienceAppeal}</p>
                           </div>
                           <div>
                             <h4 className="font-medium text-blue-400">Brand Alignment</h4>
-                            <p className="text-sm text-muted-foreground">{concept.rationale.brandAlignment as string}</p>
+                            <p className="text-sm text-muted-foreground">{(concept.rationale as RawConcept['rationale'])?.brandAlignment}</p>
                           </div>
                         </div>
                         <div className="space-y-3">
                           <div>
                             <h4 className="font-medium text-green-400">Messaging Strategy</h4>
-                            <p className="text-sm text-muted-foreground">{concept.rationale.messagingStrategy as string}</p>
+                            <p className="text-sm text-muted-foreground">{(concept.rationale as RawConcept['rationale'])?.messagingStrategy}</p>
                           </div>
                           <div>
                             <h4 className="font-medium text-green-400">Visual Hierarchy</h4>
-                            <p className="text-sm text-muted-foreground">{concept.rationale.visualHierarchy as string}</p>
+                            <p className="text-sm text-muted-foreground">{(concept.rationale as RawConcept['rationale'])?.visualHierarchy}</p>
                           </div>
                         </div>
                       </div>
@@ -775,7 +687,7 @@ export default function Home() {
                     <AccordionTrigger>Description of the concept</AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-4">
-                        {Object.entries(concept.midjourneyPrompts).map(([key, prompt]) => (
+                        {Object.entries(concept.midjourneyPrompts as RawConcept['midjourneyPrompts']).map(([key, prompt]) => (
                           <div key={key} className="space-y-2">
                             <div className="flex justify-between items-center">
                               <h4 className="font-medium text-orange-400 capitalize">{key}</h4>

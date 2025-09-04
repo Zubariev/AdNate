@@ -4,15 +4,11 @@ import { Brief, briefs, Concept, concepts, InsertBrief, InsertConcept, InsertSel
 import { eq } from 'drizzle-orm';
 import { desc } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid'; // Import uuid
-import { EnhancedBrief, InsertEnhancedBrief } from "./api/supabase";
 export interface IStorage {
   createBrief(brief: InsertBrief): Promise<Brief>;
   getBrief(id: string): Promise<Brief | null>;
-  getBriefByShareId(shareId: string): Promise<Brief | null>; // Removed
   getAllBriefs(): Promise<Brief[]>;
-  updateBriefShare(id: string, isPublic: boolean): Promise<Brief>; // Removed
-  createEnhancedBrief(enhancedBrief: InsertEnhancedBrief): Promise<EnhancedBrief>; // Removed
-  getEnhancedBriefByBriefId(briefId: string): Promise<EnhancedBrief | null>; // Removed
+  updateBrief(id: string, updates: Partial<Pick<InsertBrief, 'enhancedBrief'>>): Promise<Brief>;
   saveConcept(briefId: string, concept: Omit<InsertConcept, 'briefId'>): Promise<Concept>;
   getConceptsByBriefId(briefId: string): Promise<Concept[]>;
   saveSelectedConcept(selectedConcept: InsertSelectedConcept): Promise<SelectedConcept>;
@@ -63,26 +59,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Removed getBriefByShareId
-  async getBriefByShareId(shareId: string): Promise<Brief | null> {
-    if (!db) {
-      console.warn('Drizzle DB not initialized, falling back to in-memory storage for getBriefByShareId.');
-      return InMemoryStorage.instance.getBriefByShareId(shareId);
-    }
-
-    try {
-      const briefResult = await db!.select().from(briefs).where(eq(briefs.shareId, shareId)).limit(1);
-
-      if (!briefResult || briefResult.length === 0) {
-        return null;
-      }
-      const brief = briefResult[0];
-
-      return brief;
-    } catch (error) {
-      console.error('Supabase brief retrieval by shareId failed:', error);
-      return InMemoryStorage.instance.getBriefByShareId(shareId);
-    }
-  }
 
   async getAllBriefs(): Promise<Brief[]> {
     if (!db) {
@@ -100,42 +76,26 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Removed updateBriefShare
-  // async updateBriefShare(id: string, isPublic: boolean): Promise<Brief> {
-  //   if (!db) {
-  //     console.warn('Drizzle DB not initialized, falling back to in-memory storage for updateBriefShare.');
-  //     return InMemoryStorage.instance.updateBriefShare(id, isPublic);
-  //   }
-
-  //   try {
-  //     const updatedBriefs = await db!.update(briefs)
-  //       .set({ isPublic, updatedAt: new Date() })
-  //       .where(eq(briefs.id, id))
-  //       .returning();
-
-  //     if (!updatedBriefs || updatedBriefs.length === 0) {
-  //       throw new Error('Brief not found for update.');
-  //     }
-  //     const updatedBrief = updatedBriefs[0];
-
-  //     return updatedBrief;
-  //   } catch (error) {
-  //     console.error('Supabase brief update failed:', error);
-  //     throw error;
-  //   }
-  // }
-
-  // Removed createEnhancedBrief
-  // async createEnhancedBrief(insertEnhancedBrief: InsertEnhancedBrief): Promise<EnhancedBrief> {
-  //   // ... (logic moved or removed as enhanced briefs are now part of briefs)
-  //   throw new Error("Method not implemented.");
-  // }
-
-  // Removed getEnhancedBriefByBriefId
-  // async getEnhancedBriefByBriefId(briefId: string): Promise<EnhancedBrief | null> {
-  //   // ... (logic moved or removed as enhanced briefs are now part of briefs)
-  //   throw new Error("Method not implemented.");
-  // }
+  async updateBrief(id: string, updates: Partial<Pick<InsertBrief, 'enhancedBrief'>>): Promise<Brief> {
+    if (!db) {
+      console.warn('Drizzle DB not initialized, falling back to in-memory storage for updateBrief.');
+      // @ts-ignore
+      return InMemoryStorage.instance.updateBrief(id, updates);
+    }
+    try {
+      const updatedBriefs = await db.update(briefs)
+        .set({ ...updates, enhancedBriefUpdatedAt: new Date() })
+        .where(eq(briefs.id, id))
+        .returning();
+      if (!updatedBriefs || updatedBriefs.length === 0) {
+        throw new Error('Brief not found for update.');
+      }
+      return updatedBriefs[0];
+    } catch (error) {
+      console.error('Supabase brief update failed:', error);
+      throw error;
+    }
+  }
 
   async saveConcept(briefId: string, concept: Omit<InsertConcept, 'briefId'>): Promise<Concept> {
     if (!db) {
@@ -249,29 +209,23 @@ class InMemoryStorage implements IStorage {
     return brief ? brief : null;
   }
 
-  async getBriefByShareId(shareId: string): Promise<Brief | null> {
-    // Since shareId is removed from briefs table, this will always return null in InMemory
-    return null;
-  }
-
   async getAllBriefs(): Promise<Brief[]> {
     return this.items;
   }
 
-  async updateBriefShare(id: string, isPublic: boolean): Promise<Brief> {
-    // This method is no longer relevant as shareId and isPublic are removed from Briefs
-    throw new Error("Method not implemented as share functionality has changed.");
+  async updateBrief(id: string, updates: Partial<Pick<InsertBrief, 'enhancedBrief'>>): Promise<Brief> {
+    const briefIndex = this.items.findIndex(b => b.id === id);
+    if (briefIndex === -1) {
+      throw new Error('Brief not found in-memory.');
+    }
+    const updatedBrief = {
+      ...this.items[briefIndex],
+      ...updates,
+      enhancedBriefUpdatedAt: new Date(),
+    } as Brief;
+    this.items[briefIndex] = updatedBrief;
+    return updatedBrief;
   }
-
-  // Removed createEnhancedBrief
-  // async createEnhancedBrief(insertEnhancedBrief: InsertEnhancedBrief): Promise<EnhancedBrief> {
-  //   throw new Error("Method not implemented in InMemoryStorage");
-  // }
-
-  // Removed getEnhancedBriefByBriefId
-  // async getEnhancedBriefByBriefId(briefId: string): Promise<EnhancedBrief | null> {
-  //   throw new Error("Method not implemented in InMemoryStorage");
-  // }
 
   async saveConcept(briefId: string, concept: Omit<InsertConcept, 'briefId'>): Promise<Concept> {
     const newConcept: Concept = {

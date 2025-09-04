@@ -1,8 +1,8 @@
 // Element Specifications Analysis API
 // This module handles the "prompt2" workflow for analyzing reference images and generating element specifications
-
+import { GoogleGenAI } from "@google/genai";
+import * as fs from "node:fs";
 import { generateObject } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
 import { 
   getSelectedConcept, 
@@ -216,16 +216,6 @@ Output STRICTLY as JSON with this structure:
       conceptName: selectedConcept.name,
       imageId: referenceImage.id,
       promptLength: elementSpecificationPrompt.length
-    });
-
-    const config = globalThis.ywConfig?.ai_config?.element_specification_analyzer;
-    if (!config) {
-      throw new Error('API Error - Element specification analyzer config not found');
-    }
-
-    const openai = createOpenAI({
-      baseURL: 'https://api.youware.com/public/v1/ai',
-      apiKey: 'sk-YOUWARE'
     });
 
     const systemPrompt = config.system_prompt ? 
