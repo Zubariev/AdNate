@@ -9,7 +9,6 @@ import { DesignEditor } from './components/DesignEditor';
 import { DesignsList } from './components/DesignsList';
 import Home from './pages/brief/home';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
-import { BrowserRouter, Routes } from 'react-router-dom';
 import LoadingScreen from './pages/brief/LoadingPage';
 
 export const routes: RouteObject[] = [
@@ -47,7 +46,7 @@ export const routes: RouteObject[] = [
   },
   {
     path: "/brief/loading",
-    element: <LoadingScreen />,
+    element: <ProtectedRoute><LoadingScreen /></ProtectedRoute>,
   },
   {
     path: "*",

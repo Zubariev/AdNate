@@ -12,9 +12,10 @@ export let supabase: any; // Using 'any' for now, refine type later if needed
 export async function registerRoutes(app: Express): Promise<Server> {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
   const databaseUrlOverride = process.env.DATABASE_URL;
 
-  ({ db, supabase } = initializeDbAndSupabase(supabaseUrl, supabaseKey, databaseUrlOverride));
+  ({ db, supabase } = initializeDbAndSupabase(supabaseUrl, supabaseKey, supabaseServiceKey, databaseUrlOverride));
 
   const httpServer = createServer(app);
   return httpServer;

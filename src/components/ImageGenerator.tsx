@@ -3,7 +3,7 @@ import { Sparkles, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { generateImageProxy } from "../api/huggingface";
+// import { generateImageProxy } from "../api/huggingface";
 import { useToast } from "./ui/use-toast";
 
 interface ImageGeneratorProps {
@@ -154,7 +154,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ onImageGenerated, onAdd
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className="mx-auto w-full max-w-md">
       <CardHeader>
         <CardTitle>AI Image Generator</CardTitle>
         <CardDescription>Describe your image or upload one.</CardDescription>
@@ -172,30 +172,30 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ onImageGenerated, onAdd
 
         {generatedImage && (
           <div className="flex justify-center">
-            <img src={generatedImage} alt="Generated" className="max-h-64 rounded-md object-contain" />
+            <img src={generatedImage} alt="Generated" className="object-contain max-h-64 rounded-md" />
           </div>
         )}
 
         <Button onClick={generateImage} disabled={isGenerating} className="w-full">
           {isGenerating ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 w-4 h-4 animate-spin" />
               Generating...
             </>
           ) : (
             <>
-              <Sparkles className="mr-2 h-4 w-4" />
+              <Sparkles className="mr-2 w-4 h-4" />
               Generate Image
             </>
           )}
         </Button>
 
         <div className="relative">
-          <div className="absolute inset-0 flex items-center">
+          <div className="flex absolute inset-0 items-center">
             <span className="w-full border-t" />
           </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">Or</span>
+          <div className="flex relative justify-center text-xs uppercase">
+            <span className="px-2 bg-background text-muted-foreground">Or</span>
           </div>
         </div>
 

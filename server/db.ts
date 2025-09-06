@@ -6,13 +6,14 @@ import * as schema from "@shared/schema";
 let supabase: SupabaseClient | undefined;
 let db: PostgresJsDatabase<typeof schema> | null = null;
 
-export function initializeDbAndSupabase(supabaseUrl: string | undefined, supabaseKey: string | undefined, databaseUrlOverride?: string) {
-  if (supabaseUrl && supabaseKey) {
-    supabase = createClient(supabaseUrl, supabaseKey, {
+export function initializeDbAndSupabase(supabaseUrl: string | undefined, supabaseKey: string | undefined, supabaseServiceKey: string | undefined, databaseUrlOverride?: string) {
+  if (supabaseUrl && supabaseServiceKey) {
+    supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { autoRefreshToken: false, persistSession: false }
     });
+    console.log('[server/db] Supabase client initialized with service key.');
   } else {
-    console.warn('[server/db] Supabase env vars not set; proceeding without Supabase client.');
+    console.warn('[server/db] Supabase URL or Service Key not set; proceeding without Supabase client.');
     supabase = undefined;
   }
 

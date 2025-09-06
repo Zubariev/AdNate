@@ -1,8 +1,7 @@
 // Element Specifications Analysis API
 // This module handles the "prompt2" workflow for analyzing reference images and generating element specifications
-import { GoogleGenAI } from "@google/genai";
-import * as fs from "node:fs";
 import { generateObject } from 'ai';
+import { google } from '@ai-sdk/google';
 import { z } from 'zod';
 import { 
   getSelectedConcept, 
@@ -10,6 +9,23 @@ import {
   createElementSpecification,
   getAllReferenceImagesWithTempLinks 
 } from './supabase';
+import { Concept, ReferenceImage } from '../types';
+import { ElementSpecificationType } from '../types';
+
+declare global {
+  interface Window {
+    Config: {
+      ai_config: {
+        element_specifications_creator: {
+          model: string;
+          system_prompt: (context: { currentTime: string }) => string;
+          temperature: number;
+          maxTokens: number;
+        }
+      }
+    }
+  }
+}
 
 // Base64 image conversion utility
 export async function convertImageToBase64(imageUrl: string): Promise<string> {
@@ -74,7 +90,17 @@ export async function generateElementSpecifications(
   briefId: string,
   conceptId?: string,
   referenceImageId?: string
-): Promise<any> {
+): Promise<{
+  success: boolean;
+  elementSpecification: ElementSpecificationType;
+  specifications: ElementSpecificationType;
+  metadata: {
+    selectedConcept: Concept;
+    referenceImage: ReferenceImage & { tempUrl?: string };
+    processingTime: number;
+    aiModel: string;
+  };
+}> {
   const startTime = Date.now();
 
   console.log('🎯 Starting element specifications generation:', { 
@@ -84,8 +110,12 @@ export async function generateElementSpecifications(
   });
 
   try {
+    const config = window.Config?.ai_config?.element_specifications_creator;
+    if (!config) {
+      throw new Error('Element specifications creator config not found');
+    }
     // Step 1: Fetch selected concept
-    let selectedConcept;
+    let selectedConcept: Concept | undefined;
     if (conceptId) {
       // Use provided concept ID to get the concept details
       const concepts = await import('./supabase').then(m => m.getConceptsByBrief(briefId));
@@ -93,7 +123,7 @@ export async function generateElementSpecifications(
     } else {
       // Get the selected concept for this brief
       const selectedConceptData = await getSelectedConcept(briefId);
-      selectedConcept = selectedConceptData?.concepts;
+      selectedConcept = selectedConceptData?.concepts as Concept;
       conceptId = selectedConcept?.id;
     }
 
@@ -103,11 +133,11 @@ export async function generateElementSpecifications(
 
     console.log('📋 Selected concept retrieved:', {
       conceptId: selectedConcept.id,
-      name: selectedConcept.name
+      name: selectedConcept.title
     });
 
     // Step 2: Get reference image with temporary link
-    let referenceImage;
+    let referenceImage: (ReferenceImage & { tempUrl?: string }) | undefined;
     let tempImageUrl;
 
     if (referenceImageId) {
@@ -211,9 +241,9 @@ Output STRICTLY as JSON with this structure:
 
     // Step 5: Generate element specifications using AI
     console.log('🤖 AI API Request (Element Specifications):', {
-      model: 'gemini-2.5-pro',
+      model: config.model,
       scene: 'element_specification_analyzer',
-      conceptName: selectedConcept.name,
+      conceptName: selectedConcept.title,
       imageId: referenceImage.id,
       promptLength: elementSpecificationPrompt.length
     });
@@ -223,11 +253,11 @@ Output STRICTLY as JSON with this structure:
       '';
 
     const result = await generateObject({
-      model: openai(config.model),
+      model: google(config.model),
       messages: [
-        ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
+        ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
         {
-          role: 'user',
+          role: 'user' as const,
           content: [
             {
               type: 'text',
@@ -287,14 +317,15 @@ Output STRICTLY as JSON with this structure:
     };
 
   } catch (error) {
+    const err = error as Error;
     console.error('❌ API Error - Element specifications generation failed:', {
       briefId,
       conceptId,
       referenceImageId,
-      error: error.message,
+      error: err.message,
       processingTime: `${Date.now() - startTime}ms`
     });
-    throw new Error(`API Error - Element specifications generation failed: ${error.message}`);
+    throw new Error(`API Error - Element specifications generation failed: ${err.message}`);
   }
 }
 
@@ -321,4 +352,4 @@ export async function getExistingElementSpecifications(
 export const prompt2 = generateElementSpecifications;
 
 // Export types for use in other modules
-export type ElementSpecificationType = z.infer<typeof ElementSpecificationSchema>;
+export { ElementSpecificationType };

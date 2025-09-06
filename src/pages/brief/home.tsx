@@ -45,6 +45,7 @@ import { KeywordSuggestions } from "../../components/ui/keyword-suggestions.js";
 import { briefSuggestions } from "../../lib/brief-suggestions.js";
 import { industryTemplates } from "../../lib/industry-templates.js";
 import { briefFormSchema, Brief, Concept, RawConcept } from "../../shared/schema.js";
+import { get } from "http";
 
 
 export default function Home() {
@@ -207,11 +208,18 @@ export default function Home() {
     setIsSaving(true);
     try {
       await apiClient.post(`/briefs/${selectedBriefId}/select-concept`, { conceptId: concept.id });
+      
+      // Store briefId and conceptId for the loading page
+      localStorage.setItem('selectedBriefId', selectedBriefId);
+      localStorage.setItem('selectedConceptId', concept.id);
+      
       toast({
         title: "Concept Selected!",
         description: `"${concept.title}" has been selected successfully`
       });
-      navigate('/brief/loading');
+      
+      // Navigate with query params for better reliability
+      navigate(`/brief/loading?briefId=${selectedBriefId}&conceptId=${concept.id}`);
     } catch (error) {
       console.error('Error saving selected concept:', error);
       toast({

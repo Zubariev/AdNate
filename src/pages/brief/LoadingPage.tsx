@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Lottie from "lottie-react";
 import animationData1 from "../../../public/animations/loading-animation-2.json";
+import { apiClient } from "../../lib/apiClient";
+import { useToast } from "../../hooks/use-toast";
 
 const animations = [animationData1];
 
@@ -31,6 +34,10 @@ const phrases: string[] = [
 export default function LoadingScreen() {
   const [index, setIndex] = useState<number>(0);
   const [animationIndex, setAnimationIndex] = useState<number>(0);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { toast } = useToast();
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -39,6 +46,78 @@ export default function LoadingScreen() {
     }, 2500);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    // Get briefId from URL or localStorage
+    const briefId = searchParams.get('briefId') || localStorage.getItem('selectedBriefId');
+    
+    if (!briefId) {
+      toast({
+        title: 'Error',
+        description: 'No brief selected. Redirecting to home...',
+        variant: 'destructive',
+      });
+      navigate('/brief');
+      return;
+    }
+
+    if (!isGenerating) {
+      generateReferenceImage(briefId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, navigate, toast]);
+
+  const generateReferenceImage = async (briefId: string) => {
+    setIsGenerating(true);
+    try {
+      // Check if concept is selected
+      const selectedConceptResponse = await apiClient.get<{conceptId: string; briefId: string}>(`/briefs/${briefId}/selected-concept`);
+      if (!selectedConceptResponse.data || typeof selectedConceptResponse.data === 'string') {
+        throw new Error('No concept selected for this brief');
+      }
+      
+      // Generate reference image
+      const imageResponse = await apiClient.post<{url: string; prompt: string}>(`/briefs/${briefId}/generate-reference-image`, {});
+      
+      if (!imageResponse.data || typeof imageResponse.data === 'string' || !imageResponse.data.url) {
+        throw new Error('Failed to generate reference image');
+      }
+      
+      // Store reference image in Supabase bucket
+      const storeResponse = await apiClient.post<{path: string}>(`/briefs/${briefId}/store-reference-image`, {
+        conceptId: selectedConceptResponse.data.conceptId,
+        referenceImage: imageResponse.data.url
+      });
+      
+      if (!storeResponse.data || typeof storeResponse.data === 'string' || !storeResponse.data.path) {
+        throw new Error('Failed to store reference image');
+      }
+      
+      // Success - redirect back to brief page
+      toast({
+        title: 'Success!',
+        description: 'Reference image has been generated and stored',
+      });
+      
+      setTimeout(() => {
+        navigate('/brief');
+      }, 1500);
+      
+    } catch (error) {
+      console.error('Error generating reference image:', error);
+      
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to generate reference image',
+        variant: 'destructive',
+      });
+      
+      // Redirect back after delay
+      setTimeout(() => {
+        navigate('/brief');
+      }, 3000);
+    }
+  };
 
   return (
     <div className="flex flex-col justify-center items-center h-screen text-white bg-gray-900">

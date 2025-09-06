@@ -1,6 +1,9 @@
-import { RawConcept } from "@/shared/schema";
+import { RawConcept } from "../../shared/schema";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-
+import { EnhancedBriefData, Concept } from '../../src/types';
+import { GoogleGenAI, Modality } from "@google/genai";
+import * as fs from "node:fs";
+import { storage } from '../storage.js';
 function getGemini() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -216,6 +219,50 @@ export async function generateConceptsFromEnhancedBrief(enhancedBrief: EnhancedB
       message: (error as Error).message,
       stack: (error as Error).stack
     });
+    throw error;
+  }
+}
+
+export async function generateReferenceImage(enhancedBriefData: EnhancedBriefData, concept: Concept) {
+  
+  const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
+  
+  try {
+    // Create a detailed prompt for future use with actual image generation
+    const prompt = `Dont answer in text. Create a professional advertising image for:
+    Campaign: ${enhancedBriefData.project_name}
+    Target: ${enhancedBriefData.target_audience}
+    Message: ${enhancedBriefData.key_message}
+    Visual Style: ${enhancedBriefData.visual_style}
+    Concept: ${concept.title}
+    Description: ${concept.description}
+    Elements: ${concept.elements}
+    Aditional Context: ${concept.midjourneyPrompts}
+    Rationale: ${concept.rationale}`
+    ;
+    
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-image-preview",
+      contents: prompt,
+    });
+    for (const part of response.candidates[0].content.parts) {
+      if (part.text) {
+        console.log(part.text);
+      } else if (part.inlineData) {
+        const mimeType = part.inlineData.mimeType;
+        const imageData = part.inlineData.data;
+        const referenceImage = `data:${mimeType};base64,${imageData}`;
+        const imageUrl = await storage.storeReferenceImage(concept.id, referenceImage);
+        console.log("Image saved in Supabase bucket", imageUrl);
+        return {
+          url: imageUrl,
+          prompt: prompt
+        };
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('Error generating reference image:', error);
     throw error;
   }
 }

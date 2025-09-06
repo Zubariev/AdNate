@@ -1,6 +1,6 @@
 // Storage layer with proper typing
-import { db } from './routes'; // Import db instance
-import { Brief, briefs, Concept, concepts, InsertBrief, InsertConcept, InsertSelectedConcept, selectedConcepts, SelectedConcept } from "@shared/schema.ts";
+import { db, supabase } from './routes'; // Import db and supabase instances
+import { Brief, briefs, Concept, concepts, InsertBrief, InsertConcept, InsertSelectedConcept, selectedConcepts, SelectedConcept } from "@shared/schema";
 import { eq } from 'drizzle-orm';
 import { desc } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid'; // Import uuid
@@ -13,6 +13,9 @@ export interface IStorage {
   getConceptsByBriefId(briefId: string): Promise<Concept[]>;
   saveSelectedConcept(selectedConcept: InsertSelectedConcept): Promise<SelectedConcept>;
   getSelectedConceptByBriefId(briefId: string): Promise<SelectedConcept | null>;
+  getConceptById(id: string): Promise<Concept | null>;
+  storeReferenceImage(conceptId: string, referenceImage: string): Promise<string>;
+  getPublicUrl(bucketName: string, fileName: string): Promise<string>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -79,7 +82,6 @@ export class DatabaseStorage implements IStorage {
   async updateBrief(id: string, updates: Partial<Pick<InsertBrief, 'enhancedBrief'>>): Promise<Brief> {
     if (!db) {
       console.warn('Drizzle DB not initialized, falling back to in-memory storage for updateBrief.');
-      // @ts-ignore
       return InMemoryStorage.instance.updateBrief(id, updates);
     }
     try {
@@ -165,6 +167,58 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Supabase selected concept retrieval failed:', error);
       return InMemoryStorage.instance.getSelectedConceptByBriefId(briefId);
+    }
+  }
+
+  async getConceptById(id: string): Promise<Concept | null> {
+    if (!db) {
+      console.warn('Drizzle DB not initialized, falling back to in-memory storage for getConceptById.');
+      return InMemoryStorage.instance.getConceptById(id);
+    }
+    try {
+      const conceptResult = await db!.select().from(concepts).where(eq(concepts.id, id)).limit(1);
+      if (!conceptResult || conceptResult.length === 0) {
+        return null;
+      }
+      return conceptResult[0];
+    } catch (error) {
+
+      console.error('Supabase concept retrieval failed:', error);
+      return InMemoryStorage.instance.getConceptById(id);
+    }
+  }
+
+  async getPublicUrl(bucketName: string, fileName: string): Promise<string> {
+    return supabase.storage.from(bucketName).getPublicUrl(fileName);
+  }
+  async storeReferenceImage(conceptId: string, referenceImage: string): Promise<string> {
+    try {
+      // referenceImage is a base64 data URL, extract the base64 part
+      const base64Data = referenceImage.replace(/(^data:image\/\w+;base64,)/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+      
+      const bucketName = 'reference-images';
+      const fileName = `${conceptId}/${Date.now()}.png`;
+
+      // Upload to Supabase storage
+      const { error } = await supabase.storage
+        .from(bucketName)
+        .upload(fileName, buffer, {
+          contentType: 'image/png',
+          cacheControl: '3600',
+          upsert: false,
+        });
+      
+      if (error) {
+        console.error('Supabase storage upload error:', error);
+        throw new Error(`Failed to upload to Supabase storage: ${error.message}`);
+      }
+      const publicUrl = await this.getPublicUrl(bucketName, fileName);
+      console.log('Reference image successfully stored at:', publicUrl);
+      return fileName;
+    } catch (error) {
+      console.error('Error storing reference image:', error);
+      throw error;
     }
   }
 }
@@ -262,6 +316,19 @@ class InMemoryStorage implements IStorage {
   async getSelectedConceptByBriefId(briefId: string): Promise<SelectedConcept | null> {
     return this.selectedConcepts.find(sc => sc.briefId === briefId) || null;
   }
+
+  async getConceptById(id: string): Promise<Concept | null> {
+    return this.concepts.find(c => c.id === id) || null;
+  }
+
+  async storeReferenceImage(conceptId: string, referenceImage: string): Promise<string> {
+    // For in-memory storage, store the base64 data in memory and return a mock path
+    // In a real in-memory implementation, you might store this in a Map
+    console.log('In-memory storage: Reference image stored for concept:', conceptId);
+    console.log('Image data length:', referenceImage.length);
+    return `in-memory/${conceptId}/${Date.now()}.png`;
+  }
+  
 }
 
 export const storage = new DatabaseStorage();

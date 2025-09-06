@@ -102,7 +102,6 @@ A modern, full-featured design editor and blog platform built with React, TypeSc
    
    **Getting API Keys:**
    - **Supabase**: Create a project at [supabase.com](https://supabase.com)
-   - **Hugging Face**: Get API key from [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
    - **Google Gemini**: Get API key from [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) (required for AI-generated design concepts)
 
 4. **Database Setup**
@@ -126,7 +125,6 @@ This project is optimized for deployment on Replit:
 2. **Configure Secrets** in Replit:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY` 
-   - `VITE_HUGGINGFACE_API_KEY`
    - `GEMINI_API_KEY` (optional, for AI-generated design concepts)
 3. **Run the project** - It will automatically install dependencies and start
 
@@ -255,12 +253,105 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Hugging Face](https://huggingface.co/) for AI capabilities
 - [Tailwind CSS](https://tailwindcss.com/) for styling framework
 
-## 📞 Support
+---
 
-- 📧 Email: support@designstudio.dev
-- 💬 Discord: [Join our community](https://discord.gg/designstudio)
-- 📚 Documentation: [docs.designstudio.dev](https://docs.designstudio.dev)
+# Application Logic
+
+1. **User Registration / Login**
+
+   * The user registers in the application or logs in if already registered.
+
+2. **Redirect to Design List**
+
+   * After a successful login, the user is redirected to the **Design List** page.
+
+3. **Create a New Design**
+
+   * The user clicks the **“+”** button to add a new design.
+
+4. **Brief Page**
+
+   * The user is redirected to the **Brief** page.
+   * The user fills in the brief form.
+
+5. **Brief Enhancement & Concept Generation**
+
+   * The LLM automatically improves the submitted brief.
+   * The LLM generates **three design concepts** based on the improved brief.
+
+6. **Concept Selection**
+
+   * The user selects **one concept**.
+   * The user is redirected to a **Loading** page.
+
+7. **Reference Image Creation**
+
+   * While the user waits, the LLM generates a **reference image** for the selected concept.
+
+8. **Element Specification & Image Generation**
+
+   * The LLM creates a **detailed specification** for each design element based on:
+
+     * the reference image,
+     * the brief,
+     * the selected concept.
+   * Using this specification, element images are generated.
+   * If an element image is not a “background,” a **background removal model** is applied.
+
+9. **Design Assembly**
+
+   * The processed element images (with transparent backgrounds) are placed on the **Design Editor** canvas according to their specifications.
+   * The user is redirected to the **Design Editor** page with the assembled design elements.
+
+10. **Design Editing & Management**
+
+    * On the **Design Editor** page, the user can:
+
+      * Edit design elements.
+      * Save the design as a single card.
+      * Import the design into **Figma**.
+      * Save the current design state.
+      * Delete the design from the application.
+      * Share the design link with other registered users.
+
+11. **Design List Access**
+
+    * On the **Design List** page, the user can:
+
+      * View all created designs.
+      * Open any design to continue editing in the **Design Editor**.
+      * Create a new design by clicking the **“+”** button.
 
 ---
 
-Made with ❤️ by the Design Studio team
+flowchart TD
+
+A[User registers or logs in] --> B[Redirect to Design List page]
+B --> C[Click + to add new design]
+C --> D[Redirect to Brief page]
+D --> E[User fills in the brief]
+E --> F[LLM improves brief]
+F --> G[LLM generates 3 design concepts]
+G --> H[User selects 1 concept]
+H --> I[Redirect to Loading page]
+
+I --> J[LLM creates reference image]
+J --> K[LLM creates element specifications]
+K --> L[LLM generates element images]
+L --> M{Element is background?}
+M -- No --> N[Apply background removal model]
+M -- Yes --> O[Skip background removal]
+
+N --> P[Place elements on canvas]
+O --> P[Place elements on canvas]
+
+P --> Q[Redirect to Design Editor page]
+
+Q --> R[User edits design]
+R --> S[Save as card / Save state / Delete design]
+R --> T[Import design into Figma]
+R --> U[Share link with other users]
+
+Q --> V[Return to Design List page]
+V --> B
+
