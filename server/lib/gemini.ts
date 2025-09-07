@@ -3,6 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { EnhancedBriefData, Concept } from '../../src/types';
 import { GoogleGenAI, Modality } from "@google/genai";
 import * as fs from "node:fs";
+import { getSelectedConceptByBriefId, getElementSpecifications } from '../storage.ts';
 import { storage } from '../storage.js';
 function getGemini() {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -229,7 +230,7 @@ export async function generateReferenceImage(enhancedBriefData: EnhancedBriefDat
   
   try {
     // Create a detailed prompt for future use with actual image generation
-    const prompt = `Dont answer in text. Create a professional advertising image for:
+    const prompt = `Dont answer in text. Create one professional advertising image for:
     Campaign: ${enhancedBriefData.project_name}
     Target: ${enhancedBriefData.target_audience}
     Message: ${enhancedBriefData.key_message}
@@ -265,4 +266,173 @@ export async function generateReferenceImage(enhancedBriefData: EnhancedBriefDat
     console.error('Error generating reference image:', error);
     throw error;
   }
+}
+
+// Main prompt2 function - analyze reference image and generate element specifications
+export async function generateElementSpecifications(
+  briefId: string,
+  conceptId?: string,
+  referenceImageId?: string
+): Promise<{
+  success: boolean;
+  elementSpecification: ElementSpecification;
+  specifications: ElementSpecification;
+  metadata: {
+    selectedConcept: Concept;
+    referenceImage: ReferenceImage;
+    processingTime: number;
+    aiModel: string;
+  };
+}> {
+  const startTime = Date.now();
+
+  try {
+
+    // Step 1: Fetch selected concept
+    if (conceptId) {
+      // Use provided concept ID to get the concept details
+      const concept = await storage.getConcept(conceptId);  
+
+    // Step 2: Get reference image with temporary link
+    let referenceImage: ReferenceImage;
+    let tempImageUrl: string;
+
+    if (referenceImageId) {
+      // Use specific reference image
+      referenceImage = await storage.getReferenceImage(referenceImageId);
+      tempImageUrl = referenceImage.url;
+    }
+
+    referenceImage = concept.reference_images[0]; // Get most recent
+    tempImageUrl = referenceImage.url;
+
+    if (!tempImageUrl) {
+      throw new Error('Could not generate temporary URL for reference image');
+    }
+
+    // Step 3: Convert image to base64 for AI analysis
+    const base64Image = await storage.convertImageToBase64(tempImageUrl);
+    
+    // Step 4: Build the element specification prompt
+    const elementSpecificationPrompt = `As a Senior Digital Production Artist with expertise in ad banner creation, analyze this reference banner design and generate SPECIFICATION SHEETS for each editable element. DO NOT describe what you see - instead, provide PRODUCTION-GRADE specifications for regenerating each element separately with perfect transparency.
+
+Reference banner concept:
+${JSON.stringify(concept)}
+
+Reference visual (for context only):
+  ${base64Image}
+
+CRITICAL INSTRUCTIONS:
+1. For each element, provide specifications as if briefing a designer who will recreate it from scratch
+2. NEVER describe the reference image - focus on production requirements
+3. Text elements MUST specify: exact font family, size, weight, tracking, and color codes
+4. For graphics, specify: lighting continuity requirements, perspective angle, and transparency zones
+5. Identify which elements are "locked" (cannot be edited without breaking design)
+
+For EACH element, provide:
+
+1. **Element Blueprint**:
+   - Type: [Primary Product/Text/CTA/etc.]
+   - Purpose: [What this element communicates to viewers]
+   - Editability Rating: [1-5, where 5 = fully editable]
+   - Critical Constraints: [e.g., "Logo must maintain 2:1 aspect ratio"]
+
+2. **Technical Specification**:
+   - Dimensions: {width, height} in pixels (scaled to banner size)
+   - Position: {x, y} coordinates (top-left origin)
+   - Layer Depth: [1-10, 10 = foreground]
+   - Transparency Requirements: [Specific areas that MUST be transparent]
+   - Style Continuity Markers: [e.g., "Match Kodachrome grain from background"]
+
+3. **Regeneration Protocol**:
+   - Generation Prompt: [Precise description for creating THIS element on transparent background]
+   - Lighting Requirements: [e.g., "30° side lighting matching reference"]
+   - Perspective: [e.g., "Isometric 15° angle"]
+   - Style Anchors: [e.g., "Match brush stroke texture from reference"]
+
+Output STRICTLY as JSON with this structure:
+{
+  "background": {
+    "type": "Background",
+    "specification": "string",
+    "regenerationPrompt": "string"
+  },
+  "elements": [{
+    "id": "UUID",
+    "name": "string (semantic name like 'primary-cta-button')",
+    "type": "string",
+    "purpose": "string",
+    "editabilityRating": number,
+    "criticalConstraints": "string",
+    "dimensions": {"width": number, "height": number},
+    "position": {"x": number, "y": number},
+    "layerDepth": number,
+    "transparencyRequirements": "string",
+    "styleContinuityMarkers": "string",
+    "regenerationPrompt": "string",
+    "lightingRequirements": "string",
+    "perspective": "string",
+    "styleAnchors": "string"
+  }]
+}`;
+    const genAI = getGemini();
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const elementSpecificationResponse = await model.generateContent([
+      { text: elementSpecificationPrompt + "\n\nIMPORTANT: Return ONLY valid JSON, no other text or markdown formatting." }
+    ]);
+
+    const elementSpecificationResponseText = elementSpecificationResponse.response?.text();
+    if (!elementSpecificationResponseText) {
+      throw new Error("Failed to generate element specifications - no content received from Gemini");
+    }
+    const elementSpecificationJsonMatch = elementSpecificationResponseText.match(/\{[\s\S]*\}/);
+    const cleanedElementSpecificationResponse = elementSpecificationJsonMatch ? elementSpecificationJsonMatch[0] : elementSpecificationResponseText;
+    const elementSpecificationJson = JSON.parse(cleanedElementSpecificationResponse);
+
+    // Step 6: Store the specifications in the database    
+    const elementSpec = await storage.createElementSpecification(
+      briefId,
+      conceptId!,
+      elementSpecificationJson,
+      elementSpecificationPrompt,
+      referenceImageId,
+      "gemini-2.5-flash-image-preview"
+    );
+
+    // Return the complete result
+    return {
+      success: true,
+      elementSpecification: elementSpec,
+      specifications: elementSpecificationJson,
+      metadata: {
+        selectedConcept: concept as Concept,
+        referenceImage,
+        processingTime: Date.now() - startTime,
+        aiModel: "gemini-2.5-flash-image-preview"
+      }
+    };
+  } catch (error) {
+    console.error('Error generating element specifications:', error);
+    throw error;
+  }
+}
+
+// Utility function to get existing specifications
+export async function getExistingElementSpecifications(
+  briefId: string,
+  conceptId?: string
+) {
+  try {
+    const specifications = await storage.getElementSpecifications(briefId, conceptId);
+    
+    return specifications.map(spec => ({
+      ...spec,
+      specifications: spec.specification_data
+    }));
+  } catch (error) {
+    console.error('Error getting existing element specifications:', error);
+    throw error;
+  }
+}
 }
