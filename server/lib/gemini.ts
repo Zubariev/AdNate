@@ -299,12 +299,14 @@ export async function generateElementSpecifications(
 
     if (referenceImageId) {
       // Use specific reference image
-      referenceImage = await storage.getReferenceImage(referenceImageId);
-      tempImageUrl = referenceImage.url;
+      const referenceImageName = await storage.getImageName('reference-images', referenceImageId);
+      const referenceImageUrl = await storage.getPublicUrl('reference-images', referenceImageName);
+      referenceImage = await storage.getReferenceImage(referenceImageUrl);
+      tempImageUrl = referenceImageUrl;
     }
 
     referenceImage = concept.reference_images[0]; // Get most recent
-    tempImageUrl = referenceImage.url;
+    tempImageUrl = referenceImageUrl;
 
     if (!tempImageUrl) {
       throw new Error('Could not generate temporary URL for reference image');
