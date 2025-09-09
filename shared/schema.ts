@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, jsonb, timestamp, integer } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm"; // Import sql
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -49,6 +49,36 @@ export const selectedConcepts = pgTable("selected_concepts", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const elementSpecifications = pgTable("element_specifications", {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    briefId: uuid("brief_id").notNull().references(() => briefs.id, { onDelete: "cascade" }),
+    conceptId: uuid("concept_id").notNull().references(() => concepts.id, { onDelete: "cascade" }),
+    referenceImageId: uuid("reference_image_id"),
+    specificationData: jsonb("specification_data").notNull(),
+    aiModelUsed: text("ai_model_used").default("gemini-2.5-pro"),
+    promptUsed: text("prompt_used").notNull(),
+    generatedAt: timestamp("generated_at", { withTimezone: true }).defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const referenceImages = pgTable("reference_images", {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    briefId: uuid("brief_id").notNull().references(() => briefs.id, { onDelete: "cascade" }),
+    conceptId: uuid("concept_id").notNull().references(() => concepts.id, { onDelete: "cascade" }),
+    imageUrl: text("image_url").notNull(),
+    imagePath: text("image_path"),
+    fileName: text("file_name"),
+    fileSize: integer("file_size"),
+    mimeType: text("mime_type"),
+    imageData: jsonb("image_data"),
+    promptUsed: text("prompt_used").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
 export const insertBriefSchema = createInsertSchema(briefs).pick({
   projectName: true,
   targetAudience: true,
@@ -81,13 +111,46 @@ export const insertSelectedConceptSchema = createInsertSchema(selectedConcepts).
   userId: true,
 });
 
+export const insertElementSpecificationSchema = createInsertSchema(elementSpecifications);
+
+export const insertReferenceImageSchema = createInsertSchema(referenceImages);
+
 export type InsertBrief = z.infer<typeof insertBriefSchema>;
 export type InsertConcept = z.infer<typeof insertConceptSchema>;
 export type InsertSelectedConcept = z.infer<typeof insertSelectedConceptSchema>;
+export type InsertElementSpecification = z.infer<typeof insertElementSpecificationSchema>;
+export type InsertReferenceImage = z.infer<typeof insertReferenceImageSchema>;
 
 export type Brief = typeof briefs.$inferSelect & { concepts?: Concept[] };
 export type Concept = typeof concepts.$inferSelect;
 export type SelectedConcept = typeof selectedConcepts.$inferSelect;
+export type ElementSpecification = typeof elementSpecifications.$inferSelect;
+export type ReferenceImage = typeof referenceImages.$inferSelect;
+
+export interface ElementSpecificationData {
+  background: {
+    type: string;
+    specification: string;
+    regenerationPrompt: string;
+  };
+  elements: Array<{
+    id: string;
+    name: string;
+    type: string;
+    purpose: string;
+    editabilityRating: number;
+    criticalConstraints: string;
+    dimensions: { width: number; height: number };
+    position: { x: number; y: number };
+    layerDepth: number;
+    transparencyRequirements: string;
+    styleContinuityMarkers: string;
+    regenerationPrompt: string;
+    lightingRequirements: string;
+    perspective: string;
+    styleAnchors: string;
+  }>;
+}
 
 export const briefFormSchema = z.object({
   projectName: z.string().min(3, "Project name must be at least 3 characters").optional(),

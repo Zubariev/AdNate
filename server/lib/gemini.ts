@@ -1,10 +1,8 @@
-import { RawConcept } from "../../shared/schema";
+import { RawConcept, Concept, ElementSpecification, ReferenceImage, ElementSpecificationData } from "../../shared/schema";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { EnhancedBriefData, Concept } from '../../src/types';
-import { GoogleGenAI, Modality } from "@google/genai";
-import * as fs from "node:fs";
-import { getSelectedConceptByBriefId, getElementSpecifications } from '../storage.ts';
-import { storage } from '../storage.js';
+import { EnhancedBriefData } from '../../src/types';
+import { GoogleGenAI } from "@google/genai";
+import { storage } from '../storage';
 function getGemini() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -246,7 +244,17 @@ export async function generateReferenceImage(enhancedBriefData: EnhancedBriefDat
       model: "gemini-2.5-flash-image-preview",
       contents: prompt,
     });
-    for (const part of response.candidates[0].content.parts) {
+
+    if (!response.candidates || response.candidates.length === 0) {
+        throw new Error("No candidates returned from Gemini for image generation.");
+    }
+
+    const candidate = response.candidates[0];
+    if (!candidate.content || !candidate.content.parts) {
+      throw new Error("No content parts returned from Gemini for image generation.");
+    }
+
+    for (const part of candidate.content.parts) {
       if (part.text) {
         console.log(part.text);
       } else if (part.inlineData) {
@@ -271,12 +279,12 @@ export async function generateReferenceImage(enhancedBriefData: EnhancedBriefDat
 // Main prompt2 function - analyze reference image and generate element specifications
 export async function generateElementSpecifications(
   briefId: string,
-  conceptId?: string,
+  conceptId: string,
   referenceImageId?: string
 ): Promise<{
   success: boolean;
   elementSpecification: ElementSpecification;
-  specifications: ElementSpecification;
+  specifications: ElementSpecificationData; // This will be the JSONB data
   metadata: {
     selectedConcept: Concept;
     referenceImage: ReferenceImage;
@@ -287,29 +295,27 @@ export async function generateElementSpecifications(
   const startTime = Date.now();
 
   try {
-
-    // Step 1: Fetch selected concept
-    if (conceptId) {
-      // Use provided concept ID to get the concept details
-      const concept = await storage.getConcept(conceptId);  
-
-    // Step 2: Get reference image with temporary link
-    let referenceImage: ReferenceImage;
-    let tempImageUrl: string;
-
-    if (referenceImageId) {
-      // Use specific reference image
-      const referenceImageName = await storage.getImageName('reference-images', referenceImageId);
-      const referenceImageUrl = await storage.getPublicUrl('reference-images', referenceImageName);
-      referenceImage = await storage.getReferenceImage(referenceImageUrl);
-      tempImageUrl = referenceImageUrl;
+    // Step 1: Fetch concept
+    const concept = await storage.getConceptById(conceptId);
+    if (!concept) {
+      throw new Error(`Concept with ID ${conceptId} not found.`);
     }
 
-    referenceImage = concept.reference_images[0]; // Get most recent
-    tempImageUrl = referenceImageUrl;
+    // Step 2: Get reference image
+    let referenceImage: ReferenceImage | null = null;
+    if (referenceImageId) {
+      referenceImage = await storage.getReferenceImage(referenceImageId);
+    } else {
+      referenceImage = await storage.getLatestReferenceImageByConceptId(conceptId);
+    }
 
+    if (!referenceImage || !referenceImage.imageUrl) {
+      throw new Error('Reference image not found for the concept.');
+    }
+
+    const tempImageUrl = await storage.getPublicUrl('reference-images', referenceImage.imagePath || referenceImage.fileName || '');
     if (!tempImageUrl) {
-      throw new Error('Could not generate temporary URL for reference image');
+        throw new Error('Could not generate temporary URL for reference image');
     }
 
     // Step 3: Convert image to base64 for AI analysis
@@ -390,16 +396,16 @@ Output STRICTLY as JSON with this structure:
     }
     const elementSpecificationJsonMatch = elementSpecificationResponseText.match(/\{[\s\S]*\}/);
     const cleanedElementSpecificationResponse = elementSpecificationJsonMatch ? elementSpecificationJsonMatch[0] : elementSpecificationResponseText;
-    const elementSpecificationJson = JSON.parse(cleanedElementSpecificationResponse);
+    const elementSpecificationJson = JSON.parse(cleanedElementSpecificationResponse) as ElementSpecificationData;
 
-    // Step 6: Store the specifications in the database    
+    // Step 5: Store the specifications in the database    
     const elementSpec = await storage.createElementSpecification(
       briefId,
-      conceptId!,
+      conceptId,
       elementSpecificationJson,
       elementSpecificationPrompt,
-      referenceImageId,
-      "gemini-2.5-flash-image-preview"
+      referenceImage.id,
+      "gemini-1.5-flash"
     );
 
     // Return the complete result
@@ -408,33 +414,14 @@ Output STRICTLY as JSON with this structure:
       elementSpecification: elementSpec,
       specifications: elementSpecificationJson,
       metadata: {
-        selectedConcept: concept as Concept,
-        referenceImage,
+        selectedConcept: concept,
+        referenceImage: referenceImage,
         processingTime: Date.now() - startTime,
-        aiModel: "gemini-2.5-flash-image-preview"
+        aiModel: "gemini-1.5-flash"
       }
     };
   } catch (error) {
     console.error('Error generating element specifications:', error);
     throw error;
   }
-}
-
-// Utility function to get existing specifications
-export async function getExistingElementSpecifications(
-  briefId: string,
-  conceptId?: string
-) {
-  try {
-    const specifications = await storage.getElementSpecifications(briefId, conceptId);
-    
-    return specifications.map(spec => ({
-      ...spec,
-      specifications: spec.specification_data
-    }));
-  } catch (error) {
-    console.error('Error getting existing element specifications:', error);
-    throw error;
-  }
-}
 }

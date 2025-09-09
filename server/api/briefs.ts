@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { storage } from '../storage.js';
-import { enhanceBrief, generateConceptsFromEnhancedBrief, BriefInput, EnhancedBriefOutput, generateReferenceImage } from '../lib/gemini.js';
+import { enhanceBrief, generateConceptsFromEnhancedBrief, BriefInput, EnhancedBriefOutput, generateReferenceImage, generateElementSpecifications } from '../lib/gemini.js';
 import { briefFormSchema, InsertBrief, InsertConcept, RawConcept, InsertSelectedConcept } from "@shared/schema";
 import { ZodError } from 'zod';
 import { protect } from '../middleware/auth.js';
@@ -281,6 +281,24 @@ router.post('/:briefId/store-reference-image', protect, async (req, res) => {
   } catch (error) {
     console.error('Error storing reference image:', error);
     res.status(500).json({ message: (error as Error).message || 'Failed to store reference image' });
+  }
+});
+
+router.post('/:briefId/generate-element-specifications', protect, async (req, res) => {
+  try {
+    const { briefId } = req.params;
+    const { conceptId, referenceImageId } = req.body;
+
+    if (!conceptId) {
+      return res.status(400).json({ message: 'Concept ID is required.' });
+    }
+
+    const result = await generateElementSpecifications(briefId, conceptId, referenceImageId);
+    
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Error generating element specifications:', error);
+    res.status(500).json({ message: (error as Error).message || 'Failed to generate element specifications' });
   }
 });
 

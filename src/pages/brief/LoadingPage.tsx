@@ -92,6 +92,15 @@ export default function LoadingScreen() {
       if (!storeResponse.data || typeof storeResponse.data === 'string' || !storeResponse.data.path) {
         throw new Error('Failed to store reference image');
       }
+
+      // Generate element specifications
+      const specResponse = await apiClient.post(`/briefs/${briefId}/generate-element-specifications`, {
+        conceptId: selectedConceptResponse.data.conceptId,
+      });
+
+      if (!specResponse.data) {
+        throw new Error('Failed to generate element specifications');
+      }
       
       // Success - redirect back to brief page
       toast({
@@ -116,6 +125,8 @@ export default function LoadingScreen() {
       setTimeout(() => {
         navigate('/brief');
       }, 3000);
+    } finally {
+      setIsGenerating(false);
     }
   };
 

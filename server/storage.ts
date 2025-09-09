@@ -1,9 +1,11 @@
 // Storage layer with proper typing
 import { db, supabase } from './routes'; // Import db and supabase instances
-import { Brief, briefs, Concept, concepts, InsertBrief, InsertConcept, InsertSelectedConcept, selectedConcepts, SelectedConcept } from "@shared/schema";
+import { Brief, briefs, Concept, concepts, InsertBrief, InsertConcept, InsertSelectedConcept, selectedConcepts, SelectedConcept, ElementSpecification, elementSpecifications, ReferenceImage, referenceImages, ElementSpecificationData } from "@shared/schema";
 import { eq } from 'drizzle-orm';
 import { desc } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid'; // Import uuid
+import axios from 'axios';
+
 export interface IStorage {
   createBrief(brief: InsertBrief): Promise<Brief>;
   getBrief(id: string): Promise<Brief | null>;
@@ -16,6 +18,11 @@ export interface IStorage {
   getConceptById(id: string): Promise<Concept | null>;
   storeReferenceImage(conceptId: string, referenceImage: string): Promise<string>;
   getPublicUrl(bucketName: string, fileName: string): Promise<string>;
+  createElementSpecification(briefId: string, conceptId: string, specificationData: ElementSpecificationData, promptUsed: string, referenceImageId: string | undefined, aiModelUsed: string): Promise<ElementSpecification>;
+  getReferenceImage(id: string): Promise<ReferenceImage | null>;
+  getLatestReferenceImageByConceptId(conceptId: string): Promise<ReferenceImage | null>;
+  getImageName(referenceImageId: string): Promise<string>;
+  convertImageToBase64(imageUrl: string): Promise<string>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -189,7 +196,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPublicUrl(bucketName: string, fileName: string): Promise<string> {
-    return supabase.storage.from(bucketName).getPublicUrl(fileName);
+    const { data } = supabase.storage.from(bucketName).getPublicUrl(fileName);
+    return data.publicUrl;
   }
   async storeReferenceImage(conceptId: string, referenceImage: string): Promise<string> {
     try {
@@ -219,6 +227,69 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error storing reference image:', error);
       throw error;
+    }
+  }
+
+  async createElementSpecification(briefId: string, conceptId: string, specificationData: ElementSpecificationData, promptUsed: string, referenceImageId: string | undefined, aiModelUsed: string): Promise<ElementSpecification> {
+    if (!db) {
+      throw new Error('Drizzle DB not initialized.');
+    }
+
+    const brief = await this.getBrief(briefId);
+    if (!brief || !brief.userId) {
+      throw new Error('Brief or user not found.');
+    }
+
+    const newSpec = await db.insert(elementSpecifications).values({
+      briefId,
+      conceptId,
+      userId: brief.userId,
+      specificationData,
+      promptUsed,
+      referenceImageId: referenceImageId ?? null,
+      aiModelUsed
+    }).returning();
+
+    return newSpec[0];
+  }
+
+  async getReferenceImage(id: string): Promise<ReferenceImage | null> {
+    if (!db) {
+      return InMemoryStorage.instance.getReferenceImage(id);
+    }
+    const result = await db.select().from(referenceImages).where(eq(referenceImages.id, id)).limit(1);
+    return result[0] || null;
+  }
+
+  async getLatestReferenceImageByConceptId(conceptId: string): Promise<ReferenceImage | null> {
+    if (!db) {
+        return InMemoryStorage.instance.getLatestReferenceImageByConceptId(conceptId);
+    }
+    const result = await db.select()
+        .from(referenceImages)
+        .where(eq(referenceImages.conceptId, conceptId))
+        .orderBy(desc(referenceImages.createdAt))
+        .limit(1);
+    return result[0] || null;
+  }
+
+  async getImageName(referenceImageId: string): Promise<string> {
+    // This is a placeholder implementation. This assumes the file name is stored in the reference image record.
+    const image = await this.getReferenceImage(referenceImageId);
+    if (!image || !image.fileName) {
+      throw new Error("Reference image not found or has no file name.");
+    }
+    return image.fileName;
+  }
+
+  async convertImageToBase64(imageUrl: string): Promise<string> {
+    try {
+      const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+      const buffer = Buffer.from(response.data as ArrayBuffer);
+      return buffer.toString('base64');
+    } catch (error) {
+      console.error('Error converting image to base64:', error);
+      throw new Error('Failed to convert image to base64.');
     }
   }
 }
@@ -307,7 +378,10 @@ class InMemoryStorage implements IStorage {
       id: uuidv4(),
       conceptId: insertSelectedConcept.conceptId,
       briefId: insertSelectedConcept.briefId,
+      userId: insertSelectedConcept.userId,
       selectedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
     this.selectedConcepts.push(selectedConcept);
     return selectedConcept;
@@ -329,6 +403,49 @@ class InMemoryStorage implements IStorage {
     return `in-memory/${conceptId}/${Date.now()}.png`;
   }
   
+  async getPublicUrl(bucketName: string, fileName: string): Promise<string> {
+      console.log(`In-memory storage: Getting public url for ${fileName} in bucket ${bucketName}`);
+      return `https://mock.storage.com/${bucketName}/${fileName}`;
+  }
+
+  // Mock implementations for new methods
+  async createElementSpecification(briefId: string, conceptId: string, specificationData: ElementSpecificationData, promptUsed: string, referenceImageId: string | undefined, aiModelUsed: string): Promise<ElementSpecification> {
+    console.log('In-memory storage: Creating element specification');
+    const spec: ElementSpecification = {
+      id: uuidv4(),
+      briefId,
+      conceptId,
+      userId: uuidv4(), // mock user id
+      specificationData,
+      promptUsed,
+      referenceImageId: referenceImageId ?? null,
+      aiModelUsed,
+      generatedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    return spec;
+  }
+
+  async getReferenceImage(id: string): Promise<ReferenceImage | null> {
+    console.log(`In-memory storage: Getting reference image for id ${id}`);
+    return null; // Not implemented for in-memory
+  }
+
+  async getLatestReferenceImageByConceptId(conceptId: string): Promise<ReferenceImage | null> {
+      console.log(`In-memory storage: Getting latest reference image for concept id ${conceptId}`);
+      return null; // Not implemented for in-memory
+  }
+
+  async getImageName(referenceImageId: string): Promise<string> {
+    console.log(`In-memory storage: Getting image name for reference image id ${referenceImageId}`);
+    return "mock-image-name.png";
+  }
+
+  async convertImageToBase64(imageUrl: string): Promise<string> {
+    console.log(`In-memory storage: Converting image to base64 for url ${imageUrl}`);
+    return "mock-base64-string";
+  }
 }
 
 export const storage = new DatabaseStorage();
