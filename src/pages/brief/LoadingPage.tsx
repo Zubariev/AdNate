@@ -4,6 +4,7 @@ import Lottie from "lottie-react";
 import animationData1 from "../../../public/animations/loading-animation-2.json";
 import { apiClient } from "../../lib/apiClient";
 import { useToast } from "../../hooks/use-toast";
+import { ReferenceImage } from "../../types/reference-image";
 
 const animations = [animationData1];
 
@@ -77,25 +78,18 @@ export default function LoadingScreen() {
       }
       
       // Generate reference image
-      const imageResponse = await apiClient.post<{url: string; prompt: string}>(`/briefs/${briefId}/generate-reference-image`, {});
+      const imageResponse = await apiClient.post<ReferenceImage>(`/briefs/${briefId}/generate-reference-image`, {});
       
-      if (!imageResponse.data || typeof imageResponse.data === 'string' || !imageResponse.data.url) {
-        throw new Error('Failed to generate reference image');
+      if (!imageResponse.data || !imageResponse.data.id) {
+        throw new Error('Failed to generate and save reference image record');
       }
       
-      // Store reference image in Supabase bucket
-      const storeResponse = await apiClient.post<{path: string}>(`/briefs/${briefId}/store-reference-image`, {
-        conceptId: selectedConceptResponse.data.conceptId,
-        referenceImage: imageResponse.data.url
-      });
-      
-      if (!storeResponse.data || typeof storeResponse.data === 'string' || !storeResponse.data.path) {
-        throw new Error('Failed to store reference image');
-      }
+      const newReferenceImage = imageResponse.data;
 
       // Generate element specifications
       const specResponse = await apiClient.post(`/briefs/${briefId}/generate-element-specifications`, {
         conceptId: selectedConceptResponse.data.conceptId,
+        referenceImageId: newReferenceImage.id
       });
 
       if (!specResponse.data) {
@@ -105,7 +99,7 @@ export default function LoadingScreen() {
       // Success - redirect back to brief page
       toast({
         title: 'Success!',
-        description: 'Reference image has been generated and stored',
+        description: 'Reference image and element specifications have been generated.',
       });
       
       setTimeout(() => {

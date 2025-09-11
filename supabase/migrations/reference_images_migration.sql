@@ -2,6 +2,24 @@
 -- Date: 2025-08-29
 -- Description: Creates table for storing reference images with concept IDs and file paths for Supabase Storage
 
+-- Add columns to reference_images if they don't exist.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='reference_images' AND column_name='image_path') THEN
+        ALTER TABLE reference_images ADD COLUMN image_path TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='reference_images' AND column_name='file_name') THEN
+        ALTER TABLE reference_images ADD COLUMN file_name TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='reference_images' AND column_name='file_size') THEN
+        ALTER TABLE reference_images ADD COLUMN file_size BIGINT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='reference_images' AND column_name='mime_type') THEN
+        ALTER TABLE reference_images ADD COLUMN mime_type TEXT;
+    END IF;
+END
+$$;
+
 -- Create reference_images table
 CREATE TABLE IF NOT EXISTS reference_images (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,

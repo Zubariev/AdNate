@@ -2,7 +2,29 @@ import { RawConcept, Concept, ElementSpecification, ReferenceImage, ElementSpeci
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { EnhancedBriefData } from '../../src/types';
 import { GoogleGenAI } from "@google/genai";
+
+import axios from 'axios';
+declare module "@google/genai" {
+  interface GenerateContentParameters {
+    generationConfig?: {
+      responseMimeType?: string;
+      temperature?: number;
+      maxOutputTokens?: number;
+      topP?: number;
+      topK?: number;
+    };
+  }
+}
+
 import { storage } from '../storage';
+
+function formatObjectForPrompt(obj: any): string {
+  if (!obj) return 'N/A';
+  return Object.entries(obj)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join(', ');
+}
+
 function getGemini() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -222,31 +244,38 @@ export async function generateConceptsFromEnhancedBrief(enhancedBrief: EnhancedB
   }
 }
 
-export async function generateReferenceImage(enhancedBriefData: EnhancedBriefData, concept: Concept) {
+export async function generateReferenceImage(enhancedBriefData: EnhancedBriefData, concept: Concept, userId: string): Promise<ReferenceImage> {
   
-  const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
-  
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+  // Build prompt
+  const prompt = `Dont answer in text. Create one professional advertising image for:
+Campaign: ${enhancedBriefData.project_name}
+Target: ${enhancedBriefData.target_audience}
+Message: ${enhancedBriefData.key_message}
+Visual Style: ${enhancedBriefData.visual_style}
+Concept: ${concept.title}
+Description: ${concept.description}
+Elements: ${formatObjectForPrompt(concept.elements)}
+Aditional Context: ${formatObjectForPrompt(concept.midjourneyPrompts)}
+Rationale: ${formatObjectForPrompt(concept.rationale)}`;
+
+  // Try Gemini first
   try {
-    // Create a detailed prompt for future use with actual image generation
-    const prompt = `Dont answer in text. Create one professional advertising image for:
-    Campaign: ${enhancedBriefData.project_name}
-    Target: ${enhancedBriefData.target_audience}
-    Message: ${enhancedBriefData.key_message}
-    Visual Style: ${enhancedBriefData.visual_style}
-    Concept: ${concept.title}
-    Description: ${concept.description}
-    Elements: ${concept.elements}
-    Aditional Context: ${concept.midjourneyPrompts}
-    Rationale: ${concept.rationale}`
-    ;
-    
+    console.log("Attempting image generation with Gemini...");
+
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-image-preview",
-      contents: prompt,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "image/jpeg",
+        temperature: 0.7,
+        topP: 0.95,
+      },
     });
 
     if (!response.candidates || response.candidates.length === 0) {
-        throw new Error("No candidates returned from Gemini for image generation.");
+      throw new Error("No candidates returned from Gemini for image generation.");
     }
 
     const candidate = response.candidates[0];
@@ -255,24 +284,94 @@ export async function generateReferenceImage(enhancedBriefData: EnhancedBriefDat
     }
 
     for (const part of candidate.content.parts) {
-      if (part.text) {
-        console.log(part.text);
-      } else if (part.inlineData) {
+      if (part.inlineData) {
         const mimeType = part.inlineData.mimeType;
         const imageData = part.inlineData.data;
         const referenceImage = `data:${mimeType};base64,${imageData}`;
-        const imageUrl = await storage.storeReferenceImage(concept.id, referenceImage);
-        console.log("Image saved in Supabase bucket", imageUrl);
-        return {
-          url: imageUrl,
-          prompt: prompt
-        };
+        const newImageRecord = await storage.storeReferenceImage({
+          conceptId: concept.id,
+          briefId: concept.briefId,
+          userId: userId,
+          promptUsed: prompt,
+          imageBase64: referenceImage,
+          imageData: { source: 'gemini' }
+        });
+        console.log("✅ Gemini image saved in Supabase bucket and database:", newImageRecord.id);
+        return newImageRecord;
       }
     }
-    return null;
-  } catch (error) {
-    console.error('Error generating reference image:', error);
-    throw error;
+
+    throw new Error("Gemini returned no image data in parts.");
+
+  } catch (geminiError: any) {
+    console.warn("⚠️ Gemini failed, falling back to Qwen-Image via Segmind...", geminiError.message);
+
+    // Fallback to Segmind Qwen-Image (Fast Flux Schnell)
+    try {
+      const segmindApiKey = process.env.SEGMIND_API_KEY;
+      if (!segmindApiKey) {
+        console.error("❌ SEGMIND_API_KEY not configured. Cannot fallback.");
+        throw new Error("Image generation failed: Gemini error + Segmind API key missing.");
+      }
+
+      // Construct a simpler, more direct prompt for the fallback API
+      const mjPrompts = concept.midjourneyPrompts as any;
+      const promptParts: string[] = [concept.title];
+
+      if (mjPrompts && typeof mjPrompts === 'object' && Object.keys(mjPrompts).length > 0) {
+        promptParts.push(...Object.values(mjPrompts).filter((v): v is string => typeof v === 'string'));
+      } else {
+        if (concept.description) {
+            promptParts.push(concept.description);
+        }
+        const elements = concept.elements as any;
+        if (elements && typeof elements === 'object' && Object.keys(elements).length > 0) {
+            promptParts.push(...Object.values(elements).filter((v): v is string => typeof v === 'string'));
+        }
+      }
+      const fallbackPrompt = promptParts.join(', ');
+    
+      const segmindResponse = await axios.post(
+        "https://api.segmind.com/v1/qwen-image",
+        {
+          prompt: fallbackPrompt,
+          aspect_ratio: "16:9",
+          seed: Math.floor(Math.random() * 1000000),
+          base64: true
+        },
+        {
+          headers: {
+            'x-api-key': segmindApiKey,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    
+      const base64Image = segmindResponse.data.image;
+      if (!base64Image) {
+        throw new Error(`Segmind Qwen-Image returned invalid response: ${JSON.stringify(segmindResponse.data)}`);
+      }
+    
+      const referenceImage = `data:image/jpeg;base64,${base64Image}`;
+      const newImageRecord = await storage.storeReferenceImage({
+          conceptId: concept.id,
+          briefId: concept.briefId,
+          userId: userId,
+          promptUsed: fallbackPrompt,
+          imageBase64: referenceImage,
+          imageData: { source: 'qwen-image-segmind' }
+      });
+    
+      console.log("✅ Fallback Qwen-Image saved in Supabase bucket and database:", newImageRecord.id);
+      return newImageRecord;
+    
+    } catch (segmindError: any) {
+      console.error("❌ Segmind Qwen-Image also failed:", segmindError.message);
+      if (axios.isAxiosError(segmindError) && segmindError.response) {
+        console.error("Segmind API response body:", segmindError.response.data);
+      }
+      throw new Error(`Image generation failed completely. Gemini: ${geminiError.message} | Segmind: ${segmindError.message}`);
+    }
   }
 }
 

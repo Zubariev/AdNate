@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { storage } from '../storage.js';
 import { enhanceBrief, generateConceptsFromEnhancedBrief, BriefInput, EnhancedBriefOutput, generateReferenceImage, generateElementSpecifications } from '../lib/gemini.js';
-import { briefFormSchema, InsertBrief, InsertConcept, RawConcept, InsertSelectedConcept } from "@shared/schema";
+import { briefFormSchema, InsertBrief, InsertConcept, RawConcept, InsertSelectedConcept, InsertReferenceImage } from "@shared/schema";
 import { ZodError } from 'zod';
 import { protect } from '../middleware/auth.js';
 import { EnhancedBriefData } from '../../src/types.js';
@@ -233,54 +233,51 @@ router.post('/:briefId/generate-reference-image', protect, async (req, res) => {
       return res.status(404).json({ message: 'Concept not found.' });
     }
     
-    // Convert database concept to frontend type
-    const conceptForGeneration = {
-      id: concept.id,
-      brief_id: concept.briefId,
-      title: concept.title,
-      description: concept.description || '',
-      elements: concept.elements as any,
-      midjourneyPrompts: concept.midjourneyPrompts as any,
-      rationale: concept.rationale as any,
-      created_at: concept.createdAt.toISOString(),
-      updated_at: concept.updatedAt.toISOString()
-    };
-    
+    if (!req.user || !req.user.id) {
+        return res.status(401).json({ message: 'User not authenticated.' });
+    }
+
+    // Check for an existing reference image first
+    let existingImage = await storage.findReferenceImage({
+      userId: req.user.id,
+      briefId: brief.id,
+      conceptId: concept.id
+    });
+
+    if (existingImage) {
+      console.log(`✅ Found existing reference image in DB (${existingImage.id}), skipping generation.`);
+      return res.status(200).json(existingImage);
+    }
+
+    // If not in DB, check for an orphaned image in storage
+    console.log(`No reference image found in DB for concept ${concept.id}, checking storage for orphans...`);
+    const orphanedImage = await storage.findOrphanedImageInStorage(concept.id);
+
+    if (orphanedImage) {
+        console.log(`✅ Found orphaned image in storage: ${orphanedImage.path}. Creating DB record...`);
+        const publicUrl = await storage.getPublicUrl('reference-images', orphanedImage.path);
+        const recoveredImage = await storage.createReferenceImageRecord({
+            userId: req.user.id,
+            briefId: brief.id,
+            conceptId: concept.id,
+            promptUsed: `Recovered orphan image for concept: ${concept.title}`,
+            imageUrl: publicUrl,
+            imagePath: orphanedImage.path,
+            fileName: orphanedImage.name,
+            mimeType: `image/${orphanedImage.name.split('.').pop()}`,
+            imageData: { source: 'recovered-orphan' }
+        });
+        return res.status(200).json(recoveredImage);
+    }
+
     // Generate the reference image
-    const referenceImage = await generateReferenceImage(brief.enhancedBrief as EnhancedBriefData, conceptForGeneration);
+    console.log("No existing reference image found, proceeding with generation.");
+    const newReferenceImage = await generateReferenceImage(brief.enhancedBrief as EnhancedBriefData, concept, req.user.id);
     
-    res.status(200).json(referenceImage);
+    res.status(200).json(newReferenceImage);
   } catch (error) {
     console.error('Error generating reference image:', error);
     res.status(500).json({ message: (error as Error).message || 'Failed to generate reference image' });
-  }
-});
-
-// Store reference image in the bucket 
-router.post('/:briefId/store-reference-image', protect, async (req, res) => {
-  try {
-    const { briefId } = req.params;
-    const { referenceImage, conceptId } = req.body;
-    
-    if (!conceptId) {
-      return res.status(400).json({ message: 'Concept ID is required' });
-    }
-    
-    if (!referenceImage) {
-      return res.status(400).json({ message: 'Reference image data is required' });
-    }
-    
-    // Verify the concept belongs to this brief
-    const concept = await storage.getConceptById(conceptId);
-    if (!concept || concept.briefId !== briefId) {
-      return res.status(404).json({ message: 'Concept not found for this brief' });
-    }
-    
-    const storedImagePath = await storage.storeReferenceImage(conceptId, referenceImage);
-    res.status(200).json({ path: storedImagePath });
-  } catch (error) {
-    console.error('Error storing reference image:', error);
-    res.status(500).json({ message: (error as Error).message || 'Failed to store reference image' });
   }
 });
 
@@ -293,6 +290,20 @@ router.post('/:briefId/generate-element-specifications', protect, async (req, re
       return res.status(400).json({ message: 'Concept ID is required.' });
     }
 
+    // Check for existing specifications first
+    const existingSpec = await storage.findLatestSpecification(briefId, conceptId);
+    if (existingSpec) {
+        console.log(`✅ Found existing element specifications for concept ${conceptId}, skipping generation.`);
+        // To match the structure returned by generateElementSpecifications
+        return res.status(200).json({
+            success: true,
+            elementSpecification: existingSpec,
+            specifications: existingSpec.specificationData,
+            metadata: { /* metadata can be minimal or omitted if not needed by frontend */ }
+        });
+    }
+
+    console.log(`No existing element specifications for concept ${conceptId}, proceeding with generation.`);
     const result = await generateElementSpecifications(briefId, conceptId, referenceImageId);
     
     res.status(200).json(result);

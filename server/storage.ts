@@ -1,7 +1,7 @@
 // Storage layer with proper typing
 import { db, supabase } from './routes'; // Import db and supabase instances
-import { Brief, briefs, Concept, concepts, InsertBrief, InsertConcept, InsertSelectedConcept, selectedConcepts, SelectedConcept, ElementSpecification, elementSpecifications, ReferenceImage, referenceImages, ElementSpecificationData } from "@shared/schema";
-import { eq } from 'drizzle-orm';
+import { Brief, briefs, Concept, concepts, InsertBrief, InsertConcept, InsertSelectedConcept, selectedConcepts, SelectedConcept, ElementSpecification, elementSpecifications, ReferenceImage, referenceImages, ElementSpecificationData, InsertReferenceImage } from "@shared/schema";
+import { eq, and } from 'drizzle-orm';
 import { desc } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid'; // Import uuid
 import axios from 'axios';
@@ -16,13 +16,17 @@ export interface IStorage {
   saveSelectedConcept(selectedConcept: InsertSelectedConcept): Promise<SelectedConcept>;
   getSelectedConceptByBriefId(briefId: string): Promise<SelectedConcept | null>;
   getConceptById(id: string): Promise<Concept | null>;
-  storeReferenceImage(conceptId: string, referenceImage: string): Promise<string>;
+  storeReferenceImage(data: Omit<InsertReferenceImage, 'imageUrl' | 'imagePath' | 'fileName'> & { imageBase64: string; }): Promise<ReferenceImage>;
   getPublicUrl(bucketName: string, fileName: string): Promise<string>;
   createElementSpecification(briefId: string, conceptId: string, specificationData: ElementSpecificationData, promptUsed: string, referenceImageId: string | undefined, aiModelUsed: string): Promise<ElementSpecification>;
   getReferenceImage(id: string): Promise<ReferenceImage | null>;
   getLatestReferenceImageByConceptId(conceptId: string): Promise<ReferenceImage | null>;
   getImageName(referenceImageId: string): Promise<string>;
   convertImageToBase64(imageUrl: string): Promise<string>;
+  findReferenceImage(params: { userId: string; briefId: string; conceptId: string }): Promise<ReferenceImage | null>;
+  findOrphanedImageInStorage(conceptId: string): Promise<{ path: string; name: string } | null>;
+  createReferenceImageRecord(data: InsertReferenceImage): Promise<ReferenceImage>;
+  findLatestSpecification(briefId: string, conceptId: string): Promise<ElementSpecification | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -199,20 +203,26 @@ export class DatabaseStorage implements IStorage {
     const { data } = supabase.storage.from(bucketName).getPublicUrl(fileName);
     return data.publicUrl;
   }
-  async storeReferenceImage(conceptId: string, referenceImage: string): Promise<string> {
+  async storeReferenceImage(data: Omit<InsertReferenceImage, 'imageUrl' | 'imagePath' | 'fileName'> & { imageBase64: string; }): Promise<ReferenceImage> {
+    const { conceptId, briefId, userId, promptUsed, imageBase64, ...restData } = data;
     try {
-      // referenceImage is a base64 data URL, extract the base64 part
-      const base64Data = referenceImage.replace(/(^data:image\/\w+;base64,)/, '');
+      const mimeTypeMatch = imageBase64.match(/^data:(image\/\w+);base64,/);
+      if (!mimeTypeMatch) {
+        throw new Error('Invalid image data URL format. Expected "data:image/..."');
+      }
+      const mimeType = mimeTypeMatch[1];
+      const extension = mimeType.split('/')[1];
+      const base64Data = imageBase64.substring(imageBase64.indexOf(',') + 1);
+
       const buffer = Buffer.from(base64Data, 'base64');
       
       const bucketName = 'reference-images';
-      const fileName = `${conceptId}/${Date.now()}.png`;
+      const fileName = `${conceptId}/${Date.now()}.${extension}`;
 
-      // Upload to Supabase storage
       const { error } = await supabase.storage
         .from(bucketName)
         .upload(fileName, buffer, {
-          contentType: 'image/png',
+          contentType: mimeType,
           cacheControl: '3600',
           upsert: false,
         });
@@ -221,9 +231,27 @@ export class DatabaseStorage implements IStorage {
         console.error('Supabase storage upload error:', error);
         throw new Error(`Failed to upload to Supabase storage: ${error.message}`);
       }
+      
       const publicUrl = await this.getPublicUrl(bucketName, fileName);
       console.log('Reference image successfully stored at:', publicUrl);
-      return fileName;
+
+      const newImageRecordData: InsertReferenceImage = {
+        ...restData,
+        conceptId,
+        briefId,
+        userId,
+        promptUsed,
+        imageUrl: publicUrl,
+        imagePath: fileName,
+        fileName: fileName.split('/').pop() || fileName,
+        mimeType: mimeType,
+        fileSize: buffer.length
+      };
+
+      const newImageRecords = await db!.insert(referenceImages).values(newImageRecordData).returning();
+
+      return newImageRecords[0];
+
     } catch (error) {
       console.error('Error storing reference image:', error);
       throw error;
@@ -273,6 +301,59 @@ export class DatabaseStorage implements IStorage {
     return result[0] || null;
   }
 
+  async findReferenceImage({ userId, briefId, conceptId }: { userId: string; briefId: string; conceptId: string }): Promise<ReferenceImage | null> {
+    if (!db) {
+      return InMemoryStorage.instance.findReferenceImage({ userId, briefId, conceptId });
+    }
+    const result = await db.select()
+        .from(referenceImages)
+        .where(
+            and(
+                eq(referenceImages.userId, userId),
+                eq(referenceImages.briefId, briefId),
+                eq(referenceImages.conceptId, conceptId)
+            )
+        )
+        .orderBy(desc(referenceImages.createdAt))
+        .limit(1);
+    return result[0] || null;
+  }
+
+  async findOrphanedImageInStorage(conceptId: string): Promise<{ path: string; name: string } | null> {
+    const { data, error } = await supabase.storage
+        .from('reference-images')
+        .list(conceptId, {
+            limit: 1,
+            sortBy: { column: 'created_at', order: 'desc' },
+        });
+
+    if (error) {
+        console.error('Error listing storage files:', error);
+        return null;
+    }
+
+    if (data && data.length > 0) {
+        const file = data[0];
+        return {
+            path: `${conceptId}/${file.name}`,
+            name: file.name
+        };
+    }
+
+    return null;
+  }
+
+  async createReferenceImageRecord(data: InsertReferenceImage): Promise<ReferenceImage> {
+      if (!db) {
+          throw new Error('Drizzle DB not initialized.');
+      }
+      const newImageRecords = await db!.insert(referenceImages).values(data).returning();
+      if (!newImageRecords || newImageRecords.length === 0) {
+          throw new Error('Failed to create reference image record in database.');
+      }
+      return newImageRecords[0];
+  }
+
   async getImageName(referenceImageId: string): Promise<string> {
     // This is a placeholder implementation. This assumes the file name is stored in the reference image record.
     const image = await this.getReferenceImage(referenceImageId);
@@ -291,6 +372,23 @@ export class DatabaseStorage implements IStorage {
       console.error('Error converting image to base64:', error);
       throw new Error('Failed to convert image to base64.');
     }
+  }
+
+  async findLatestSpecification(briefId: string, conceptId: string): Promise<ElementSpecification | null> {
+    if (!db) {
+        return InMemoryStorage.instance.findLatestSpecification(briefId, conceptId);
+    }
+    const result = await db.select()
+        .from(elementSpecifications)
+        .where(
+            and(
+                eq(elementSpecifications.briefId, briefId),
+                eq(elementSpecifications.conceptId, conceptId)
+            )
+        )
+        .orderBy(desc(elementSpecifications.createdAt))
+        .limit(1);
+    return result[0] || null;
   }
 }
 
@@ -395,14 +493,52 @@ class InMemoryStorage implements IStorage {
     return this.concepts.find(c => c.id === id) || null;
   }
 
-  async storeReferenceImage(conceptId: string, referenceImage: string): Promise<string> {
-    // For in-memory storage, store the base64 data in memory and return a mock path
-    // In a real in-memory implementation, you might store this in a Map
+  async storeReferenceImage(data: Omit<InsertReferenceImage, 'imageUrl' | 'imagePath' | 'fileName'> & { imageBase64: string; }): Promise<ReferenceImage> {
+    const { conceptId, imageBase64 } = data;
     console.log('In-memory storage: Reference image stored for concept:', conceptId);
-    console.log('Image data length:', referenceImage.length);
-    return `in-memory/${conceptId}/${Date.now()}.png`;
+    console.log('Image data length:', imageBase64.length);
+    const path = `in-memory/${conceptId}/${Date.now()}.png`;
+
+    const newImage: ReferenceImage = {
+        id: uuidv4(),
+        imageUrl: path,
+        imagePath: path,
+        fileName: path,
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        fileSize: null,
+        mimeType: null,
+    };
+    return newImage;
   }
   
+  async findReferenceImage(params: { userId: string; briefId: string; conceptId: string }): Promise<ReferenceImage | null> {
+    console.log(`In-memory storage: Finding reference image for user ${params.userId}, brief ${params.briefId}, concept ${params.conceptId}`);
+    return null; // Not implemented for in-memory
+  }
+
+  async findOrphanedImageInStorage(conceptId: string): Promise<{ path: string; name: string } | null> {
+      console.log(`In-memory storage: Checking for orphaned images for concept ${conceptId}`);
+      return null;
+  }
+
+  async createReferenceImageRecord(data: InsertReferenceImage): Promise<ReferenceImage> {
+      console.log(`In-memory storage: Creating reference image record`);
+      const newImage: ReferenceImage = {
+          id: uuidv4(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          ...data
+      };
+      return newImage;
+  }
+
+  async findLatestSpecification(briefId: string, conceptId: string): Promise<ElementSpecification | null> {
+      console.log(`In-memory storage: Finding latest specification for brief ${briefId} and concept ${conceptId}`);
+      return null;
+  }
+
   async getPublicUrl(bucketName: string, fileName: string): Promise<string> {
       console.log(`In-memory storage: Getting public url for ${fileName} in bucket ${bucketName}`);
       return `https://mock.storage.com/${bucketName}/${fileName}`;
