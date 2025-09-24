@@ -20,7 +20,8 @@ import { storage } from '../storage';
 import { supabase } from "../db";
 import { removeBackground as removeBgApi } from "@imgly/background-removal-node";
 
-async function removeBackground(imageBase64: string): Promise<string> {
+async function removeBackground(imageBase64: string): Promise<string | null> {
+  // 1. Try with @imgly/background-removal-node
   try {
     const imageBuffer = Buffer.from(imageBase64.split(',')[1], 'base64');
     const blob = new Blob([imageBuffer]);
@@ -28,10 +29,45 @@ async function removeBackground(imageBase64: string): Promise<string> {
     const buffer = await result.arrayBuffer();
     const base64 = Buffer.from(buffer).toString('base64');
     const mimeType = result.type;
+    console.log("✅ Background removed successfully with @imgly/background-removal-node.");
     return `data:${mimeType};base64,${base64}`;
   } catch (error) {
-    console.error("Failed to remove background:", error);
-    throw new Error("Background removal failed.");
+    console.warn("⚠️ @imgly/background-removal-node failed. Falling back to remove.bg API.", error);
+
+    // 2. Fallback to remove.bg
+    try {
+      const removeBgApiKey = process.env.REMOVE_BG_API_KEY;
+      if (!removeBgApiKey) {
+        console.error("❌ REMOVE_BG_API_KEY not configured. Cannot fallback for background removal.");
+        return null; // Can't proceed with fallback
+      }
+
+      const response = await axios.post(
+        'https://api.remove.bg/v1.0/removebg',
+        {
+          image_file_b64: imageBase64.split(',')[1],
+          size: 'auto'
+        },
+        {
+          headers: {
+            'X-Api-Key': removeBgApiKey,
+            'Content-Type': 'application/json',
+          },
+          responseType: 'json'
+        }
+      );
+      
+      const removedBgBase64 = response.data.data.result_b64;
+      console.log("✅ Background removed successfully with remove.bg fallback.");
+      return `data:image/png;base64,${removedBgBase64}`;
+
+    } catch (fallbackError) {
+      console.error("❌ Background removal fallback (remove.bg) also failed.", fallbackError);
+      if (axios.isAxiosError(fallbackError)) {
+        console.error("remove.bg API response body:", (fallbackError as AxiosError).response?.data);
+      }
+      return null; // Both primary and fallback failed.
+    }
   }
 }
 
