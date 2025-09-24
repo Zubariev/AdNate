@@ -28,6 +28,6 @@
   "ts-node": {
     "esm": true
   },
-  "include": ["src/**/*", "server/**/*", "shared/**/*"],
+  "include": ["src/**/*", "server/**/*", "shared/**/*", "src/mojs.d.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

@@ -609,93 +609,121 @@ function _buildDetailedPrompt(element: ElementSpecificationData['elements'][0]):
 
 export async function processBriefImages(briefId: string, userId: string): Promise<void> {
   console.log(`Starting to process images for brief_id: ${briefId}`);
-  const specRecords = await getElementSpecifications(briefId);
 
-  if (!specRecords || specRecords.length === 0) {
-    console.warn(`No specifications found for brief_id: ${briefId}. Aborting.`);
-    return;
-  }
+  try {
+    // 1. Set status to 'processing'
+    await supabase
+      .from('briefs')
+      .update({ image_generation_status: 'processing' })
+      .eq('id', briefId);
 
-  for (const record of specRecords) {
-    const parseResult = elementSpecificationDataSchema.safeParse(record.specificationData);
+    const specRecords = await getElementSpecifications(briefId);
 
-    if (!parseResult.success) {
-      console.warn("Skipping record due to invalid 'specification_data' format.", parseResult.error);
-      continue;
+    if (!specRecords || specRecords.length === 0) {
+      console.warn(`No specifications found for brief_id: ${briefId}. Aborting.`);
+      // Set status to 'failed' as this is an unexpected state
+      await supabase
+        .from('briefs')
+        .update({ image_generation_status: 'failed' })
+        .eq('id', briefId);
+      return;
     }
-    const specData = parseResult.data;
 
-    if (!specData) {
-      console.warn("Skipping record due to missing 'specification_data'.");
-      continue;
-    }
+    for (const record of specRecords) {
+      const parseResult = elementSpecificationDataSchema.safeParse(record.specification_data);
 
-    // 1. Process each element
-    for (const element of specData.elements) {
-      const prompt = _buildDetailedPrompt(element);
-      if (!prompt) {
-        console.warn(`Skipping element due to missing 'regenerationPrompt': ${element.id}`);
+      if (!parseResult.success) {
+        console.warn("Skipping record due to invalid 'specification_data' format.", parseResult.error);
         continue;
       }
-      
-      console.log(`--> Generating ORIGINAL for element ${element.id}`);
-      const originalImage = await generateElementImage(prompt, element.id, userId, briefId, record.conceptId);
-      console.log(`<-- Finished generating ORIGINAL for element ${element.id}`);
+      const specData = parseResult.data;
 
-      // The returned `ElementImage` from storage does not have `imageBase64`. 
-      // We need the base64 string for the background removal function.
-      // `generateElementImage` should return it, or we need another way to get it.
-      // For now, I'll assume `generateElementImage` returns the base64 string.
-      // This will require a change in `generateElementImage`'s return type.
-      // I'll modify `generateElementImage` to return both the DB record and the base64 string.
-      if (!originalImage.imageBase64) {
-          console.error(`Failed to get base64 for original image of element ${element.id}`);
+      if (!specData) {
+        console.warn("Skipping record due to missing 'specification_data'.");
+        continue;
+      }
+
+      // 1. Process each element
+      for (const element of specData.elements) {
+        const prompt = _buildDetailedPrompt(element);
+        if (!prompt) {
+          console.warn(`Skipping element due to missing 'regenerationPrompt': ${element.id}`);
           continue;
+        }
+        
+        console.log(`--> Generating ORIGINAL for element ${element.id}`);
+        const originalImage = await generateElementImage(prompt, element.id, userId, briefId, record.conceptId);
+        console.log(`<-- Finished generating ORIGINAL for element ${element.id}`);
+
+        // The returned `ElementImage` from storage does not have `imageBase64`. 
+        // We need the base64 string for the background removal function.
+        // `generateElementImage` should return it, or we need another way to get it.
+        // For now, I'll assume `generateElementImage` returns the base64 string.
+        // This will require a change in `generateElementImage`'s return type.
+        // I'll modify `generateElementImage` to return both the DB record and the base64 string.
+        if (!originalImage.imageBase64) {
+            console.error(`Failed to get base64 for original image of element ${element.id}`);
+            continue;
+        }
+
+        // Remove background and store the transparent version
+        console.log(`--> Removing background for element ${element.id}`);
+        const transparentImageBase64 = await removeBackground(originalImage.imageBase64);
+        console.log(`<-- Finished removing background for element ${element.id}`);
+        
+        if (transparentImageBase64) {
+          await storage.storeElementImage({
+            elementId: element.id,
+            userId: userId,
+            briefId: briefId,
+            conceptId: record.conceptId,
+            promptUsed: 'background-removed',
+            imageBase64: transparentImageBase64,
+            imageData: { source: 'imgly-background-removal' },
+            imageType: 'transparent'
+          });
+          console.log(`✅ Stored TRANSPARENT image for element ${element.id}`);
+        } else {
+          console.warn(`Background removal failed for element ${element.id}.`);
+        }
       }
 
-      // Remove background and store the transparent version
-      console.log(`--> Removing background for element ${element.id}`);
-      const transparentImageBase64 = await removeBackground(originalImage.imageBase64);
-      console.log(`<-- Finished removing background for element ${element.id}`);
-      
-      if (transparentImageBase64) {
-        await storage.storeElementImage({
-          elementId: element.id,
-          userId: userId,
-          briefId: briefId,
-          conceptId: record.conceptId,
-          promptUsed: 'background-removed',
-          imageBase64: transparentImageBase64,
-          imageData: { source: 'imgly-background-removal' },
-          imageType: 'transparent'
-        });
-        console.log(`✅ Stored TRANSPARENT image for element ${element.id}`);
+      // 2. Process the background
+      const backgroundSpec = specData.background;
+      if (backgroundSpec && backgroundSpec.regenerationPrompt) {
+        const prompt = backgroundSpec.regenerationPrompt;
+        console.log("--> Starting generation for BACKGROUND.");
+        // We use a placeholder elementId for background.
+        const backgroundElementId = 'background';
+        const backgroundImage = await generateElementImage(prompt, backgroundElementId, userId, briefId, record.conceptId);
+        if (backgroundImage) {
+          console.log(`<-- Finished generation for BACKGROUND. Stored with id: ${backgroundImage.id}`);
+        } else {
+          console.error("Failed to generate BACKGROUND image.");
+        }
       } else {
-        console.warn(`Background removal failed for element ${element.id}.`);
+        console.warn("No background specification with a prompt found.");
       }
     }
 
-    // 2. Process the background
-    const backgroundSpec = specData.background;
-    if (backgroundSpec && backgroundSpec.regenerationPrompt) {
-      const prompt = backgroundSpec.regenerationPrompt;
-      console.log("--> Starting generation for BACKGROUND.");
-      // We use a placeholder elementId for background.
-      const backgroundElementId = 'background';
-      const backgroundImage = await generateElementImage(prompt, backgroundElementId, userId, briefId, record.conceptId);
-      if (backgroundImage) {
-        console.log(`<-- Finished generation for BACKGROUND. Stored with id: ${backgroundImage.id}`);
-      } else {
-        console.error("Failed to generate BACKGROUND image.");
-      }
-    } else {
-      console.warn("No background specification with a prompt found.");
-    }
+    // 2. Set status to 'completed'
+    await supabase
+      .from('briefs')
+      .update({ image_generation_status: 'completed' })
+      .eq('id', briefId);
+
+    console.log(`Finished processing all images for brief_id: ${briefId}`);
+  } catch (error) {
+    console.error(`Error processing images for brief ${briefId}:`, error);
+    // 3. Set status to 'failed' on error
+    await supabase
+      .from('briefs')
+      .update({ image_generation_status: 'failed' })
+      .eq('id', briefId);
+    // Re-throw the error if you want the background task runner to know about the failure
+    throw error;
   }
-
-  console.log(`Finished processing all images for brief_id: ${briefId}`);
 }
-
 
 export async function getElementSpecifications(brief_id: string): Promise<ElementSpecification[]> {
   if (!supabase) {
