@@ -7,23 +7,16 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-
-.env.local
-.env.*.local
-.env
+/node_modules
+/dist
+/.env
+/.DS_Store
+/coverage
+/public/generated-icon.png
+/src/integrations/supabase/database.types.ts
+/server/dist
+/server/node_modules
+/venv
+/server/lib/__pycache__
+*.pyc
+/server/lib/generated_images

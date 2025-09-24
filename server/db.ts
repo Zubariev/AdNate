@@ -6,6 +6,8 @@ import * as schema from "@shared/schema";
 let supabase: SupabaseClient | undefined;
 let db: PostgresJsDatabase<typeof schema> | null = null;
 
+export { supabase, db };
+
 export function initializeDbAndSupabase(supabaseUrl: string | undefined, supabaseKey: string | undefined, supabaseServiceKey: string | undefined, databaseUrlOverride?: string) {
   if (supabaseUrl && supabaseServiceKey) {
     supabase = createClient(supabaseUrl, supabaseServiceKey, {

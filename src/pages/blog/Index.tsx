@@ -110,7 +110,7 @@ const Index = () => {
           )}
         </div>
       </div>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen text-black bg-gradient">
         <div className="container py-12 animate-fade-in">
           {/* Newsletter Subscription */}
           <div className="p-6 mb-12 rounded-lg border bg-card border-border">
@@ -118,7 +118,7 @@ const Index = () => {
               <div className="flex gap-3 items-center">
                 <Mail className="w-6 h-6 text-primary" />
                 <div>
-                  <h3 className="font-semibold">Subscribe to Our Newsletter</h3>
+                  <h3 className="font-semibold text-black">Subscribe to Our Newsletter</h3>
                   <p className="text-sm text-muted-foreground">
                     Get the latest design tips and resources directly in your inbox
                   </p>
@@ -142,7 +142,7 @@ const Index = () => {
           <div className="mb-12">
             <div className="flex gap-2 items-center mb-6">
               <TrendingUp className="w-5 h-5 text-primary" />
-              <h2 className="text-2xl font-semibold">Popular Posts</h2>
+              <h2 className="text-2xl font-semibold text-white">Popular Posts</h2>
             </div>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               {popularPosts.map((post) => (

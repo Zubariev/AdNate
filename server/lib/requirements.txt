@@ -1,0 +1,12 @@
+diffusers
+transformers
+supabase
+python-dotenv
+fastapi
+uvicorn
+Pillow
+accelerate
+torch
+scikit-image
+scikit-learn
+torchvision

@@ -1,9 +1,9 @@
-import { RawConcept, Concept, ElementSpecification, ReferenceImage, ElementSpecificationData } from "../../shared/schema";
+import { RawConcept, Concept, ElementSpecification, ReferenceImage, ElementSpecificationData, ElementImage, elementSpecificationDataSchema } from "../../shared/schema";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { EnhancedBriefData } from '../../src/types';
 import { GoogleGenAI } from "@google/genai";
 
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 declare module "@google/genai" {
   interface GenerateContentParameters {
     generationConfig?: {
@@ -17,9 +17,26 @@ declare module "@google/genai" {
 }
 
 import { storage } from '../storage';
+import { supabase } from "../db";
+import { removeBackground as removeBgApi } from "@imgly/background-removal-node";
 
-function formatObjectForPrompt(obj: any): string {
-  if (!obj) return 'N/A';
+async function removeBackground(imageBase64: string): Promise<string> {
+  try {
+    const imageBuffer = Buffer.from(imageBase64.split(',')[1], 'base64');
+    const blob = new Blob([imageBuffer]);
+    const result = await removeBgApi(blob);
+    const buffer = await result.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString('base64');
+    const mimeType = result.type;
+    return `data:${mimeType};base64,${base64}`;
+  } catch (error) {
+    console.error("Failed to remove background:", error);
+    throw new Error("Background removal failed.");
+  }
+}
+
+function formatObjectForPrompt(obj: unknown): string {
+  if (!obj || typeof obj !== 'object') return 'N/A';
   return Object.entries(obj)
     .map(([key, value]) => `${key}: ${value}`)
     .join(', ');
@@ -303,8 +320,9 @@ Rationale: ${formatObjectForPrompt(concept.rationale)}`;
 
     throw new Error("Gemini returned no image data in parts.");
 
-  } catch (geminiError: any) {
-    console.warn("⚠️ Gemini failed, falling back to Qwen-Image via Segmind...", geminiError.message);
+  } catch (geminiError: unknown) {
+    const geminiErrorMessage = geminiError instanceof Error ? geminiError.message : String(geminiError);
+    console.warn("⚠️ Gemini failed, falling back to Qwen-Image via Segmind...", geminiErrorMessage);
 
     // Fallback to Segmind Qwen-Image (Fast Flux Schnell)
     try {
@@ -315,23 +333,31 @@ Rationale: ${formatObjectForPrompt(concept.rationale)}`;
       }
 
       // Construct a simpler, more direct prompt for the fallback API
-      const mjPrompts = concept.midjourneyPrompts as any;
+      const mjPrompts = concept.midjourneyPrompts as Record<string, unknown>;
       const promptParts: string[] = [concept.title];
 
       if (mjPrompts && typeof mjPrompts === 'object' && Object.keys(mjPrompts).length > 0) {
-        promptParts.push(...Object.values(mjPrompts).filter((v): v is string => typeof v === 'string'));
+        Object.values(mjPrompts).forEach(v => {
+          if (typeof v === 'string') {
+            promptParts.push(v);
+          }
+        });
       } else {
         if (concept.description) {
             promptParts.push(concept.description);
         }
-        const elements = concept.elements as any;
+        const elements = concept.elements as Record<string, unknown>;
         if (elements && typeof elements === 'object' && Object.keys(elements).length > 0) {
-            promptParts.push(...Object.values(elements).filter((v): v is string => typeof v === 'string'));
+            Object.values(elements).forEach(v => {
+              if (typeof v === 'string') {
+                promptParts.push(v);
+              }
+            });
         }
       }
       const fallbackPrompt = promptParts.join(', ');
     
-      const segmindResponse = await axios.post(
+      const segmindResponse = await axios.post<{ image: string }>(
         "https://api.segmind.com/v1/qwen-image",
         {
           prompt: fallbackPrompt,
@@ -365,12 +391,13 @@ Rationale: ${formatObjectForPrompt(concept.rationale)}`;
       console.log("✅ Fallback Qwen-Image saved in Supabase bucket and database:", newImageRecord.id);
       return newImageRecord;
     
-    } catch (segmindError: any) {
-      console.error("❌ Segmind Qwen-Image also failed:", segmindError.message);
-      if (axios.isAxiosError(segmindError) && segmindError.response) {
-        console.error("Segmind API response body:", segmindError.response.data);
+    } catch (segmindError: unknown) {
+      const segmindErrorMessage = segmindError instanceof Error ? segmindError.message : String(segmindError);
+      console.error("❌ Segmind Qwen-Image also failed:", segmindErrorMessage);
+      if (axios.isAxiosError(segmindError)) {
+        console.error("Segmind API response body:", (segmindError as AxiosError).response?.data);
       }
-      throw new Error(`Image generation failed completely. Gemini: ${geminiError.message} | Segmind: ${segmindError.message}`);
+      throw new Error(`Image generation failed completely. Gemini: ${geminiErrorMessage} | Segmind: ${segmindErrorMessage}`);
     }
   }
 }
@@ -524,3 +551,239 @@ Output STRICTLY as JSON with this structure:
     throw error;
   }
 }
+
+function _buildDetailedPrompt(element: ElementSpecificationData['elements'][0]): string | null {
+  const base_prompt = element.regenerationPrompt;
+  if (!base_prompt) {
+      return null;
+  }
+  const additional_details = [
+      element.criticalConstraints,
+      element.lightingRequirements,
+      element.styleContinuityMarkers,
+      element.transparencyRequirements,
+      element.styleAnchors,
+      element.perspective,
+      element.type,
+      element.purpose
+  ];
+  const full_prompt_parts = [base_prompt, ...additional_details.filter(detail => detail)];
+  return full_prompt_parts.join(', ');
+}
+
+export async function processBriefImages(briefId: string, userId: string): Promise<void> {
+  console.log(`Starting to process images for brief_id: ${briefId}`);
+  const specRecords = await getElementSpecifications(briefId);
+
+  if (!specRecords || specRecords.length === 0) {
+    console.warn(`No specifications found for brief_id: ${briefId}. Aborting.`);
+    return;
+  }
+
+  for (const record of specRecords) {
+    const parseResult = elementSpecificationDataSchema.safeParse(record.specificationData);
+
+    if (!parseResult.success) {
+      console.warn("Skipping record due to invalid 'specification_data' format.", parseResult.error);
+      continue;
+    }
+    const specData = parseResult.data;
+
+    if (!specData) {
+      console.warn("Skipping record due to missing 'specification_data'.");
+      continue;
+    }
+
+    // 1. Process each element
+    for (const element of specData.elements) {
+      const prompt = _buildDetailedPrompt(element);
+      if (!prompt) {
+        console.warn(`Skipping element due to missing 'regenerationPrompt': ${element.id}`);
+        continue;
+      }
+      
+      console.log(`--> Generating ORIGINAL for element ${element.id}`);
+      const originalImage = await generateElementImage(prompt, element.id, userId, briefId, record.conceptId);
+      console.log(`<-- Finished generating ORIGINAL for element ${element.id}`);
+
+      // The returned `ElementImage` from storage does not have `imageBase64`. 
+      // We need the base64 string for the background removal function.
+      // `generateElementImage` should return it, or we need another way to get it.
+      // For now, I'll assume `generateElementImage` returns the base64 string.
+      // This will require a change in `generateElementImage`'s return type.
+      // I'll modify `generateElementImage` to return both the DB record and the base64 string.
+      if (!originalImage.imageBase64) {
+          console.error(`Failed to get base64 for original image of element ${element.id}`);
+          continue;
+      }
+
+      // Remove background and store the transparent version
+      console.log(`--> Removing background for element ${element.id}`);
+      const transparentImageBase64 = await removeBackground(originalImage.imageBase64);
+      console.log(`<-- Finished removing background for element ${element.id}`);
+      
+      if (transparentImageBase64) {
+        await storage.storeElementImage({
+          elementId: element.id,
+          userId: userId,
+          briefId: briefId,
+          conceptId: record.conceptId,
+          promptUsed: 'background-removed',
+          imageBase64: transparentImageBase64,
+          imageData: { source: 'imgly-background-removal' },
+          imageType: 'transparent'
+        });
+        console.log(`✅ Stored TRANSPARENT image for element ${element.id}`);
+      } else {
+        console.warn(`Background removal failed for element ${element.id}.`);
+      }
+    }
+
+    // 2. Process the background
+    const backgroundSpec = specData.background;
+    if (backgroundSpec && backgroundSpec.regenerationPrompt) {
+      const prompt = backgroundSpec.regenerationPrompt;
+      console.log("--> Starting generation for BACKGROUND.");
+      // We use a placeholder elementId for background.
+      const backgroundElementId = 'background';
+      const backgroundImage = await generateElementImage(prompt, backgroundElementId, userId, briefId, record.conceptId);
+      if (backgroundImage) {
+        console.log(`<-- Finished generation for BACKGROUND. Stored with id: ${backgroundImage.id}`);
+      } else {
+        console.error("Failed to generate BACKGROUND image.");
+      }
+    } else {
+      console.warn("No background specification with a prompt found.");
+    }
+  }
+
+  console.log(`Finished processing all images for brief_id: ${briefId}`);
+}
+
+
+export async function getElementSpecifications(brief_id: string): Promise<ElementSpecification[]> {
+  if (!supabase) {
+    throw new Error("Supabase client is not initialized.");
+  }
+  const { data, error } = await supabase
+    .from('element_specifications')
+    .select('*')
+    .eq('brief_id', brief_id)
+  
+  if (error) {
+    console.error("Error fetching element specs:", error);
+    throw error;
+  }
+  
+  return data || [];
+}
+
+export async function generateElementImage(
+  prompt: string,
+  elementId: string,
+  userId: string,
+  briefId: string,
+  conceptId: string,
+): Promise<ElementImage & { imageBase64: string }> {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+  try {
+    console.log("Attempting element image generation with Gemini...");
+
+    const response = await ai.models.generateContent({
+      model: "gemini-1.5-flash-image-preview", 
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "image/png", 
+        temperature: 0.7,
+        topP: 0.95,
+      },
+    });
+
+    if (!response.candidates || response.candidates.length === 0) {
+      throw new Error("No candidates returned from Gemini for image generation.");
+    }
+
+    const candidate = response.candidates[0];
+    if (!candidate.content || !candidate.content.parts) {
+      throw new Error("No content parts returned from Gemini for image generation.");
+    }
+
+    for (const part of candidate.content.parts) {
+      if (part.inlineData) {
+        const mimeType = part.inlineData.mimeType;
+        const imageData = part.inlineData.data;
+        const elementImage = `data:${mimeType};base64,${imageData}`;
+        const newImageRecord = await storage.storeElementImage({
+          elementId: elementId,
+          userId: userId,
+          briefId: briefId,
+          conceptId: conceptId,
+          promptUsed: prompt,
+          imageBase64: elementImage,
+          imageData: { source: 'gemini' },
+          imageType: 'original'
+        });
+        console.log("✅ Gemini element image saved in Supabase bucket and database:", newImageRecord.id);
+        return { ...newImageRecord, imageBase64: elementImage };
+      }
+    }
+    throw new Error("Gemini returned no image data in parts.");
+  } catch (geminiError: unknown) {
+    const geminiErrorMessage = geminiError instanceof Error ? geminiError.message : String(geminiError);
+    console.warn("⚠️ Gemini failed for element image, falling back to Qwen-Image via Segmind...", geminiErrorMessage);
+
+    try {
+      const segmindApiKey = process.env.SEGMIND_API_KEY;
+      if (!segmindApiKey) {
+        console.error("❌ SEGMIND_API_KEY not configured. Cannot fallback.");
+        throw new Error("Image generation failed: Gemini error + Segmind API key missing.");
+      }
+
+      const segmindResponse = await axios.post<{ image: string }>(
+        "https://api.segmind.com/v1/qwen-image",
+        {
+          prompt: prompt,
+          aspect_ratio: "16:9",
+          seed: Math.floor(Math.random() * 1000000),
+          base64: true
+        },
+        {
+          headers: {
+            'x-api-key': segmindApiKey,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      const base64Image = segmindResponse.data.image;
+      if (!base64Image) {
+        throw new Error(`Segmind Qwen-Image returned invalid response: ${JSON.stringify(segmindResponse.data)}`);
+      }
+
+      const elementImage = `data:image/jpeg;base64,${base64Image}`;
+      const newImageRecord = await storage.storeElementImage({
+          elementId: elementId,
+          userId: userId,
+          briefId: briefId,
+          conceptId: conceptId,
+          promptUsed: prompt,
+          imageBase64: elementImage,
+          imageData: { source: 'qwen-image-segmind' },
+          imageType: 'original'
+      });
+
+      console.log("✅ Fallback Qwen-Image for element saved in Supabase bucket and database:", newImageRecord.id);
+      return { ...newImageRecord, imageBase64: elementImage };
+
+    } catch (segmindError: unknown) {
+      const segmindErrorMessage = segmindError instanceof Error ? segmindError.message : String(segmindError);
+      console.error("❌ Segmind Qwen-Image also failed for element:", segmindErrorMessage);
+      if (axios.isAxiosError(segmindError)) {
+        console.error("Segmind API response body:", (segmindError as AxiosError).response?.data);
+      }
+      throw new Error(`Element image generation failed completely. Gemini: ${geminiErrorMessage} | Segmind: ${segmindErrorMessage}`);
+    }
+  }
+}
+

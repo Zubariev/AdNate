@@ -129,14 +129,14 @@ const LandingPage = () => {
 
       <div className="mx-auto space-y-8 max-w-4xl text-center">
         <h2 className="text-6xl font-bold leading-tight">
-          Create Stunning Designs
+          Create Stunning Visuals
           <span className="block text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
-            Without Limits
+          From Brief to Design in Minutes
           </span>
         </h2>
-        <p className="text-xl text-gray-300">
-          Design beautiful graphics, presentations, and social media content in minutes. 
-          No design experience needed.
+        <p className="text-xl text-left text-gray-300">
+        AdNate combines an intuitive editor to transform your creative vision into professional-quality graphics. 
+        No design experience required.
         </p>
         <button
           onClick={() => setShowSignupModal(true)}
@@ -145,6 +145,12 @@ const LandingPage = () => {
           Start Creating Free
           <Sparkles className="inline ml-2 w-5 h-5" />
         </button>
+      </div>
+      
+      <div className="mx-auto space-y-8 max-w-4xl text-center">
+        Did you find yourself spending hours cobbling together “good enough” posts in online tools with generic templates?
+        Did you frustrated when AI spits out gorgeous images - only to realize they don’t fit Instagram, Facebook, or LinkedIn sizes?
+        Did you simply don’t have the time and energy to master design tools or learn the art of AI prompting?
       </div>
 
       {/* Login Modal */}

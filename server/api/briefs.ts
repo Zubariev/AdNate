@@ -1,12 +1,28 @@
 import { Router } from 'express';
+import axios from 'axios';
 import { storage } from '../storage.js';
-import { enhanceBrief, generateConceptsFromEnhancedBrief, BriefInput, EnhancedBriefOutput, generateReferenceImage, generateElementSpecifications } from '../lib/gemini.js';
+import { enhanceBrief, generateConceptsFromEnhancedBrief, BriefInput, EnhancedBriefOutput, generateReferenceImage, generateElementSpecifications, processBriefImages } from '../lib/gemini.js';
 import { briefFormSchema, InsertBrief, InsertConcept, RawConcept, InsertSelectedConcept, InsertReferenceImage } from "@shared/schema";
 import { ZodError } from 'zod';
 import { protect } from '../middleware/auth.js';
 import { EnhancedBriefData } from '../../src/types.js';
 
 const router = Router();
+
+async function triggerImageGeneration(briefId: string) {
+  const pythonApiUrl = process.env.PYTHON_API_URL || 'http://127.0.0.1:8000';
+  try {
+    console.log(`Triggering image generation for briefId: ${briefId} at ${pythonApiUrl}`);
+    const response = await axios.post(`${pythonApiUrl}/generate-images`, {
+      brief_id: briefId
+    });
+    console.log('Image generation triggered successfully:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error(`Failed to trigger image generation for briefId: ${briefId}. Is the Python server running?`, error);
+    // This is a background task, so we log the error but don't want to fail the main request.
+  }
+}
 
 // Basic GET routes to support client queries
 router.get('/', protect, async (_req, res) => {
@@ -294,6 +310,12 @@ router.post('/:briefId/generate-element-specifications', protect, async (req, re
     const existingSpec = await storage.findLatestSpecification(briefId, conceptId);
     if (existingSpec) {
         console.log(`✅ Found existing element specifications for concept ${conceptId}, skipping generation.`);
+        
+        // Trigger image generation as a background task, don't await
+        triggerImageGeneration(briefId).catch(err => {
+            console.error("Async image generation trigger failed for existing spec:", err);
+        });
+
         // To match the structure returned by generateElementSpecifications
         return res.status(200).json({
             success: true,
@@ -306,11 +328,47 @@ router.post('/:briefId/generate-element-specifications', protect, async (req, re
     console.log(`No existing element specifications for concept ${conceptId}, proceeding with generation.`);
     const result = await generateElementSpecifications(briefId, conceptId, referenceImageId);
     
+    // If specification generation was successful, trigger the python image generation
+    if (result.success) {
+      // Trigger image generation as a background task, don't await
+      triggerImageGeneration(briefId).catch(err => {
+        console.error("Async image generation trigger failed:", err);
+      });
+    }
+
     res.status(200).json(result);
   } catch (error) {
     console.error('Error generating element specifications:', error);
     res.status(500).json({ message: (error as Error).message || 'Failed to generate element specifications' });
   }
 });
+
+router.post('/generate-images-ts', protect, async (req, res) => {
+  try {
+    const { brief_id } = req.body;
+    if (!brief_id) {
+      return res.status(400).json({ message: 'brief_id is required' });
+    }
+
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: 'Unauthorized: User not authenticated.' });
+    }
+    const userId = req.user.id;
+
+    // Run in background
+    process.nextTick(() => {
+      processBriefImages(brief_id, userId).catch(err => {
+        console.error(`Error processing brief ${brief_id} in background:`, err);
+      });
+    });
+
+    res.status(202).json({ message: "TypeScript image generation process started in the background.", brief_id: brief_id });
+
+  } catch (error) {
+    console.error('Error starting TS image generation:', error);
+    res.status(500).json({ message: (error as Error).message || 'Failed to start image generation process' });
+  }
+});
+
 
 export default router; 

@@ -16,7 +16,7 @@ The best approach? A hybrid model. Businesses can leverage AI for speed and effi
     category: "insights",
     date: "2024-04-01",
     author: {
-      name: "Sophia Lee",
+      name: "AdNate",
       avatar: "/placeholder.svg",
     },
     tags: ["ai", "design", "comparison"],
@@ -40,7 +40,7 @@ By implementing AI-driven strategies, businesses can significantly increase CTR,
     category: "tips",
     date: "2024-03-28",
     author: {
-      name: "Michael Adams",
+      name: "AdNate",
       avatar: "/placeholder.svg",
     },
     tags: ["conversion", "ai", "performance"],
@@ -63,7 +63,7 @@ This feature streamlines ad creation, saving businesses time and resources while
     category: "updates",
     date: "2024-03-25",
     author: {
-      name: "Emma Johnson",
+      name: "AdNate",
       avatar: "/placeholder.svg",
     },
     tags: ["social-media", "templates", "automation"],
@@ -93,7 +93,7 @@ By carefully selecting fonts, you can create eye-catching, high-converting banne
     category: "design",
     date: "2024-03-22",
     author: {
-      name: "Daniel Carter",
+      name: "AdNate",
       avatar: "/placeholder.svg",
     },
     tags: ["typography", "branding", "design"],
@@ -116,7 +116,7 @@ By following these best practices, businesses can maximize ad performance and en
     category: "tutorial",
     date: "2024-03-20",
     author: {
-      name: "Olivia Martinez",
+      name: "AdNate",
       avatar: "/placeholder.svg",
     },
     tags: ["google-ads", "best-practices", "guidelines"],

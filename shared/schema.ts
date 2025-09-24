@@ -79,6 +79,24 @@ export const referenceImages = pgTable("reference_images", {
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
+export const elementImages = pgTable("element_images", {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    briefId: uuid("brief_id").notNull().references(() => briefs.id, { onDelete: "cascade" }),
+    conceptId: uuid("concept_id").notNull().references(() => concepts.id, { onDelete: "cascade" }),
+    elementId: text("element_id").notNull(),
+    imageUrl: text("image_url").notNull(),
+    imagePath: text("image_path"),
+    fileName: text("file_name"),
+    fileSize: integer("file_size"),
+    mimeType: text("mime_type"),
+    imageData: jsonb("image_data"),
+    promptUsed: text("prompt_used").notNull(),
+    imageType: text("image_type").notNull(), // 'original' or 'transparent'
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
 export const insertBriefSchema = createInsertSchema(briefs).pick({
   projectName: true,
   targetAudience: true,
@@ -115,42 +133,52 @@ export const insertElementSpecificationSchema = createInsertSchema(elementSpecif
 
 export const insertReferenceImageSchema = createInsertSchema(referenceImages);
 
+export const insertElementImageSchema = createInsertSchema(elementImages);
+
 export type InsertBrief = z.infer<typeof insertBriefSchema>;
 export type InsertConcept = z.infer<typeof insertConceptSchema>;
 export type InsertSelectedConcept = z.infer<typeof insertSelectedConceptSchema>;
 export type InsertElementSpecification = z.infer<typeof insertElementSpecificationSchema>;
 export type InsertReferenceImage = z.infer<typeof insertReferenceImageSchema>;
+export type InsertElementImage = z.infer<typeof insertElementImageSchema>;
 
 export type Brief = typeof briefs.$inferSelect & { concepts?: Concept[] };
 export type Concept = typeof concepts.$inferSelect;
 export type SelectedConcept = typeof selectedConcepts.$inferSelect;
 export type ElementSpecification = typeof elementSpecifications.$inferSelect;
 export type ReferenceImage = typeof referenceImages.$inferSelect;
+export type ElementImage = typeof elementImages.$inferSelect;
 
-export interface ElementSpecificationData {
-  background: {
-    type: string;
-    specification: string;
-    regenerationPrompt: string;
-  };
-  elements: Array<{
-    id: string;
-    name: string;
-    type: string;
-    purpose: string;
-    editabilityRating: number;
-    criticalConstraints: string;
-    dimensions: { width: number; height: number };
-    position: { x: number; y: number };
-    layerDepth: number;
-    transparencyRequirements: string;
-    styleContinuityMarkers: string;
-    regenerationPrompt: string;
-    lightingRequirements: string;
-    perspective: string;
-    styleAnchors: string;
-  }>;
-}
+export const elementDataSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  type: z.string(),
+  purpose: z.string(),
+  editabilityRating: z.number(),
+  criticalConstraints: z.string(),
+  dimensions: z.object({ width: z.number(), height: z.number() }),
+  position: z.object({ x: z.number(), y: z.number() }),
+  layerDepth: z.number(),
+  transparencyRequirements: z.string(),
+  styleContinuityMarkers: z.string(),
+  regenerationPrompt: z.string(),
+  lightingRequirements: z.string(),
+  perspective: z.string(),
+  styleAnchors: z.string(),
+});
+
+export const backgroundDataSchema = z.object({
+  type: z.string(),
+  specification: z.string(),
+  regenerationPrompt: z.string(),
+});
+
+export const elementSpecificationDataSchema = z.object({
+  background: backgroundDataSchema,
+  elements: z.array(elementDataSchema),
+});
+
+export type ElementSpecificationData = z.infer<typeof elementSpecificationDataSchema>;
 
 export const briefFormSchema = z.object({
   projectName: z.string().min(3, "Project name must be at least 3 characters").optional(),

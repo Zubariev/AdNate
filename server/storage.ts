@@ -1,6 +1,6 @@
 // Storage layer with proper typing
 import { db, supabase } from './routes'; // Import db and supabase instances
-import { Brief, briefs, Concept, concepts, InsertBrief, InsertConcept, InsertSelectedConcept, selectedConcepts, SelectedConcept, ElementSpecification, elementSpecifications, ReferenceImage, referenceImages, ElementSpecificationData, InsertReferenceImage } from "@shared/schema";
+import { Brief, briefs, Concept, concepts, InsertBrief, InsertConcept, InsertSelectedConcept, selectedConcepts, SelectedConcept, ElementSpecification, elementSpecifications, ReferenceImage, referenceImages, ElementSpecificationData, InsertReferenceImage, ElementImage, elementImages, InsertElementImage } from "@shared/schema";
 import { eq, and } from 'drizzle-orm';
 import { desc } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid'; // Import uuid
@@ -17,6 +17,7 @@ export interface IStorage {
   getSelectedConceptByBriefId(briefId: string): Promise<SelectedConcept | null>;
   getConceptById(id: string): Promise<Concept | null>;
   storeReferenceImage(data: Omit<InsertReferenceImage, 'imageUrl' | 'imagePath' | 'fileName'> & { imageBase64: string; }): Promise<ReferenceImage>;
+  storeElementImage(data: Omit<InsertElementImage, 'imageUrl' | 'imagePath' | 'fileName'> & { imageBase64: string; }): Promise<ElementImage>;
   getPublicUrl(bucketName: string, fileName: string): Promise<string>;
   createElementSpecification(briefId: string, conceptId: string, specificationData: ElementSpecificationData, promptUsed: string, referenceImageId: string | undefined, aiModelUsed: string): Promise<ElementSpecification>;
   getReferenceImage(id: string): Promise<ReferenceImage | null>;
@@ -204,7 +205,7 @@ export class DatabaseStorage implements IStorage {
     return data.publicUrl;
   }
   async storeReferenceImage(data: Omit<InsertReferenceImage, 'imageUrl' | 'imagePath' | 'fileName'> & { imageBase64: string; }): Promise<ReferenceImage> {
-    const { conceptId, briefId, userId, promptUsed, imageBase64, ...restData } = data;
+    const { imageBase64, ...restData } = data;
     try {
       const mimeTypeMatch = imageBase64.match(/^data:(image\/\w+);base64,/);
       if (!mimeTypeMatch) {
@@ -217,7 +218,7 @@ export class DatabaseStorage implements IStorage {
       const buffer = Buffer.from(base64Data, 'base64');
       
       const bucketName = 'reference-images';
-      const fileName = `${conceptId}/${Date.now()}.${extension}`;
+      const fileName = `${restData.conceptId}/${Date.now()}.${extension}`;
 
       const { error } = await supabase.storage
         .from(bucketName)
@@ -237,10 +238,6 @@ export class DatabaseStorage implements IStorage {
 
       const newImageRecordData: InsertReferenceImage = {
         ...restData,
-        conceptId,
-        briefId,
-        userId,
-        promptUsed,
         imageUrl: publicUrl,
         imagePath: fileName,
         fileName: fileName.split('/').pop() || fileName,
@@ -254,6 +251,63 @@ export class DatabaseStorage implements IStorage {
 
     } catch (error) {
       console.error('Error storing reference image:', error);
+      throw error;
+    }
+  }
+
+  async storeElementImage(data: Omit<InsertElementImage, 'imageUrl' | 'imagePath' | 'fileName'> & { imageBase64: string; }): Promise<ElementImage> {
+    const { elementId, conceptId, briefId, userId, promptUsed, imageBase64, imageType, ...restData } = data;
+    try {
+      const mimeTypeMatch = imageBase64.match(/^data:(image\/\w+);base64,/);
+      if (!mimeTypeMatch) {
+        throw new Error('Invalid image data URL format. Expected "data:image/..."');
+      }
+      const mimeType = mimeTypeMatch[1];
+      const extension = mimeType.split('/')[1];
+      const base64Data = imageBase64.substring(imageBase64.indexOf(',') + 1);
+
+      const buffer = Buffer.from(base64Data, 'base64');
+      
+      const bucketName = 'element-images';
+      const fileName = `${briefId}/${elementId}_${imageType}.${extension}`;
+
+      const { error } = await supabase.storage
+        .from(bucketName)
+        .upload(fileName, buffer, {
+          contentType: mimeType,
+          cacheControl: '3600',
+          upsert: false, // Do not overwrite existing files
+        });
+      
+      if (error) {
+        console.error('Supabase storage upload error:', error);
+        throw new Error(`Failed to upload to Supabase storage: ${error.message}`);
+      }
+      
+      const publicUrl = await this.getPublicUrl(bucketName, fileName);
+      console.log('Element image successfully stored at:', publicUrl);
+
+      const newImageRecordData: InsertElementImage = {
+        ...restData,
+        conceptId,
+        briefId,
+        userId,
+        elementId,
+        promptUsed,
+        imageType,
+        imageUrl: publicUrl,
+        imagePath: fileName,
+        fileName: fileName.split('/').pop() || fileName,
+        mimeType: mimeType,
+        fileSize: buffer.length
+      };
+
+      const newImageRecords = await db!.insert(elementImages).values(newImageRecordData).returning();
+
+      return newImageRecords[0];
+
+    } catch (error) {
+      console.error('Error storing element image:', error);
       throw error;
     }
   }
@@ -500,6 +554,26 @@ class InMemoryStorage implements IStorage {
     const path = `in-memory/${conceptId}/${Date.now()}.png`;
 
     const newImage: ReferenceImage = {
+        id: uuidv4(),
+        imageUrl: path,
+        imagePath: path,
+        fileName: path,
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        fileSize: null,
+        mimeType: null,
+    };
+    return newImage;
+  }
+
+  async storeElementImage(data: Omit<InsertElementImage, 'imageUrl' | 'imagePath' | 'fileName'> & { imageBase64: string; }): Promise<ElementImage> {
+    const { briefId, elementId, imageType, imageBase64 } = data;
+    console.log(`In-memory storage: Element image stored for brief ${briefId}, element ${elementId}`);
+    console.log('Image data length:', imageBase64.length);
+    const path = `in-memory/${briefId}/${elementId}_${imageType}.png`;
+
+    const newImage: ElementImage = {
         id: uuidv4(),
         imageUrl: path,
         imagePath: path,

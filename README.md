@@ -98,6 +98,9 @@ A modern, full-featured design editor and blog platform built with React, TypeSc
    # Server Configuration
    PORT=5001
    NODE_ENV=development
+
+   # Python Image Generation API
+   PYTHON_API_URL=http://127.0.0.1:8000
    ```
    
    **Getting API Keys:**
@@ -116,6 +119,21 @@ A modern, full-featured design editor and blog platform built with React, TypeSc
    ```
    
    The application will be available at `http://localhost:5173`
+
+6. **Start Python Image Generation Server**
+   This is a separate server that handles AI image generation.
+   Open a new terminal for this process.
+
+   ```bash
+   # Navigate to the python script directory
+   cd server/lib
+
+   # Install python dependencies
+   pip install -r requirements.txt
+
+   # Run the server
+   uvicorn api:app --reload --port 8000
+   ```
 
 ### Deployment on Replit
 
@@ -150,7 +168,7 @@ src/
 
 server/
 ├── api/              # Server-side API endpoints (briefs)
-├── lib/              # Server-side utility libraries (Gemini)
+├── lib/              # Server-side utility libraries (Gemini, Python Image Generation)
 ├── index.ts          # Main server entry point
 └── ...               # Other server-side files (db.ts, routes.ts, storage.ts)
 
