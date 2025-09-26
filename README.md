@@ -99,8 +99,6 @@ A modern, full-featured design editor and blog platform built with React, TypeSc
    PORT=5001
    NODE_ENV=development
 
-   # Python Image Generation API
-   PYTHON_API_URL=http://127.0.0.1:8000
    ```
    
    **Getting API Keys:**
