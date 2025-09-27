@@ -199,8 +199,8 @@ const LandingPage = () => {
               <div className="flex justify-center items-center mb-4 w-16 h-16 rounded-full bg-white/10">
                 <Bot className="w-8 h-8 text-purple-400" />
               </div>
-              <h3 className="mb-2 text-2xl font-bold">2. AI Generates Visuals</h3>
-              <p className="text-gray-300">Our AI interprets your brief and generates a variety of unique, on-brand designs in seconds.</p>
+              <h3 className="mb-2 text-2xl font-bold">2. AdNate Creates Visuals</h3>
+              <p className="text-gray-300">We interpret your brief and generate a variety of unique, on-brand designs in minutes.</p>
             </div>
             <div className="flex flex-col items-center">
               <div className="flex justify-center items-center mb-4 w-16 h-16 rounded-full bg-white/10">
@@ -239,7 +239,15 @@ const LandingPage = () => {
             </div>
           </div>
         </div>
-
+        <div className="flex justify-center w-full">
+          <button
+              ref={ctaButtonRef}
+              onClick={handleStartCreating}
+              className="px-8 py-4 font-medium bg-gradient-to-r from-purple-400 to-pink-400 rounded-lg transition-all duration-300 text- hover:opacity-90">
+              Start Creating Free
+          </button>
+        </div>
+        
         {/* Gallery Section */}
         <div className="py-24 text-center">
           <h2 className="mb-12 text-4xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">From Idea to Asset, Instantly</h2>

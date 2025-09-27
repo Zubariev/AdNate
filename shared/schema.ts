@@ -21,6 +21,8 @@ export const briefs = pgTable("briefs", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   enhancedBrief: jsonb("enhanced_brief"),
   enhancedBriefUpdatedAt: timestamp("enhanced_brief_updated_at"),
+  imageGenerationStatus: text("image_generation_status").default("pending"),
+  errorMessage: text("error_message"),
 });
 
 export const users = pgTable("users", { // Define a minimal users table for reference

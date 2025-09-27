@@ -20,6 +20,21 @@ import { storage } from '../storage';
 import { supabase } from "../db";
 import { removeBackground as removeBgApi } from "@imgly/background-removal-node";
 
+// Helper function to generate UUID for element IDs
+function generateUUID(): string {
+  // Use native crypto if available
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  
+  // Fallback implementation for environments without crypto.randomUUID
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 
 // Simple check for potential transparency based on image type
 async function hasTransparentBackground(imageBase64: string): Promise<boolean> {
@@ -82,7 +97,7 @@ async function removeBackground(imageBase64: string): Promise<string | null> {
       
       // Create a prompt specifically for background removal
       const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash-image-preview",
+        model: "gemini-2.5-flash-image-preview",
         contents: [{ 
           role: "user", 
           parts: [
@@ -224,7 +239,7 @@ export async function enhanceBrief(brief: BriefInput): Promise<EnhancedBriefOutp
     }`;
 
     const genAI = getGemini();
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const completion = await model.generateContent([
       { text: completionPrompt + "\n\nIMPORTANT: Return ONLY valid JSON, no other text or markdown formatting." }
@@ -323,7 +338,7 @@ export async function generateConceptsFromEnhancedBrief(enhancedBrief: EnhancedB
     }`;
 
     const genAI = getGemini();
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const conceptResponse = await model.generateContent([
       { text: conceptPrompt + "\n\nIMPORTANT: Return ONLY valid JSON, no other text or markdown formatting." }
@@ -528,7 +543,7 @@ Output STRICTLY as JSON with this structure:
   }]
 }`;
     const genAI = getGemini();
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const elementSpecificationResponse = await model.generateContent([
       { text: elementSpecificationPrompt + "\n\nIMPORTANT: Return ONLY valid JSON, no other text or markdown formatting." }
@@ -549,7 +564,7 @@ Output STRICTLY as JSON with this structure:
       elementSpecificationJson,
       elementSpecificationPrompt,
       referenceImage.id,
-      "gemini-1.5-flash"
+      "gemini-2.5-flash"
     );
 
     // Return the complete result
@@ -561,7 +576,7 @@ Output STRICTLY as JSON with this structure:
         selectedConcept: concept,
         referenceImage: referenceImage,
         processingTime: Date.now() - startTime,
-        aiModel: "gemini-1.5-flash"
+        aiModel: "gemini-2.5-flash"
       }
     };
   } catch (error) {
@@ -616,16 +631,140 @@ export async function processBriefImages(briefId: string, userId: string): Promi
     }
 
     for (const record of specRecords) {
+      // Try to recover missing conceptId from the database if necessary
+      if (!record.conceptId) {
+        console.warn(`Record ${record.id} is missing conceptId. Attempting to retrieve from database...`);
+        
+        if (supabase) {
+          // First, check if this specific record has a conceptId stored in the database
+          const { data: specRecord, error: specError } = await supabase
+            .from('element_specifications')
+            .select('concept_id')
+            .eq('id', record.id)
+            .single();
+            
+          if (specError || !specRecord?.concept_id) {
+            console.warn(`Could not find conceptId for record ${record.id} directly.`);
+            
+            // As a fallback, try to find any concept associated with this brief
+            const { data: conceptData, error: conceptError } = await supabase
+              .from('concepts')
+              .select('id')
+              .eq('brief_id', briefId)
+              .limit(1)
+              .single();
+              
+            if (conceptError || !conceptData) {
+              console.error(`No concepts found for brief ${briefId}. Cannot proceed with this record.`);
+              
+              // Create a concept as a last resort if none exists
+              const { data: newConcept, error: newConceptError } = await supabase
+                .from('concepts')
+                .insert({
+                  brief_id: briefId,
+                  title: "Auto-generated concept",
+                  description: "Automatically created concept for recovery",
+                  elements: {},
+                  midjourney_prompts: {},
+                  rationale: {}
+                })
+                .select()
+                .single();
+                
+              if (newConceptError || !newConcept) {
+                console.error(`Failed to create recovery concept: ${newConceptError?.message}`);
+                continue;
+              }
+              
+              record.conceptId = newConcept.id;
+              console.log(`Created recovery concept with ID: ${record.conceptId}`);
+              
+              // Update the record in the database with the new conceptId
+              await supabase
+                .from('element_specifications')
+                .update({ concept_id: record.conceptId })
+                .eq('id', record.id);
+            } else {
+              record.conceptId = conceptData.id;
+              console.log(`Found existing concept ID: ${record.conceptId}`);
+              
+              // Update the record in the database with the found conceptId
+              await supabase
+                .from('element_specifications')
+                .update({ concept_id: record.conceptId })
+                .eq('id', record.id);
+            }
+          } else {
+            record.conceptId = specRecord.concept_id;
+            console.log(`Retrieved conceptId from database: ${record.conceptId}`);
+          }
+        } else {
+          console.error("Supabase client not available, cannot retrieve conceptId");
+          continue;
+        }
+      }
+      
+      // Handle undefined specificationData with default structure
+      if (record.specificationData === undefined) {
+        console.warn(`Record ${record.id} has undefined 'specificationData'. Creating default structure.`);
+        
+        if (!record.conceptId) {
+          console.error(`Still missing conceptId for record ${record.id} after recovery attempts. Cannot proceed.`);
+          continue;
+        }
+        
+        // Create a default structure that meets the schema requirements
+        // This allows processing to continue rather than skipping the record
+        const defaultSpecData = {
+          background: {
+            type: "Background",
+            specification: "Default background specification",
+            regenerationPrompt: "Generate a simple, neutral background suitable for a banner ad"
+          },
+          elements: [
+            {
+              id: generateUUID(),
+              name: "default-element",
+              type: "Default",
+              purpose: "Default element for recovery",
+              editabilityRating: 5,
+              criticalConstraints: "None",
+              dimensions: { width: 300, height: 250 },
+              position: { x: 0, y: 0 },
+              layerDepth: 1,
+              transparencyRequirements: "Full transparency",
+              styleContinuityMarkers: "None",
+              regenerationPrompt: "Create a simple professional banner element with clear text",
+              lightingRequirements: "Standard lighting",
+              perspective: "Flat",
+              styleAnchors: "Clean, minimal design"
+            }
+          ]
+        };
+        
+        // Update the record in the database with the default structure
+        if (supabase) {
+          await supabase
+            .from('element_specifications')
+            .update({ specification_data: defaultSpecData })
+            .eq('id', record.id);
+          
+          // Update the record in memory for continued processing
+          record.specificationData = defaultSpecData;
+          console.log(`Updated record ${record.id} with default specification data`);
+        }
+      }
+      
       const parseResult = elementSpecificationDataSchema.safeParse(record.specificationData);
 
       if (!parseResult.success) {
-        console.warn("Skipping record due to invalid 'specification_data' format.", parseResult.error);
+        console.warn(`Validation failed for record ${record.id}: `, parseResult.error);
         continue;
       }
       const specData = parseResult.data;
 
       if (!specData) {
-        console.warn("Skipping record due to missing 'specification_data'.");
+        console.warn(`Parsed data is null for record ${record.id}.`);
         continue;
       }
 
@@ -735,24 +874,81 @@ export async function processBriefImages(briefId: string, userId: string): Promi
       }
     }
 
-    // 3. Set status to 'completed'
+    // Check if any images were actually generated and saved
+    let generatedImageCount = 0;
     if (supabase) {
-      await supabase
-        .from('briefs')
-        .update({ image_generation_status: 'completed' })
-        .eq('id', briefId);
+      // Count element images for this brief
+      const { data: imageCountData, error: imageCountError } = await supabase
+        .from('element_images')
+        .select('id', { count: 'exact' })
+        .eq('brief_id', briefId);
+        
+      if (imageCountError) {
+        console.error(`Error checking element image count: ${imageCountError.message}`);
+      } else {
+        generatedImageCount = imageCountData.length;
+        console.log(`Found ${generatedImageCount} element images for brief_id: ${briefId}`);
+      }
+    }
+    
+    // If no images were generated, mark as failed with an explanatory message
+    if (generatedImageCount === 0) {
+      console.warn(`No element images were generated for brief_id: ${briefId}. Setting status to 'failed'.`);
+      
+      if (supabase) {
+        await supabase
+          .from('briefs')
+          .update({
+            image_generation_status: 'failed',
+            error_message: 'Image generation completed but no element images were created.'
+          })
+          .eq('id', briefId);
+      }
+    } else {
+      // Set status to 'completed' only if images were generated
+      if (supabase) {
+        await supabase
+          .from('briefs')
+          .update({
+            image_generation_status: 'completed',
+            error_message: null // Clear any previous error message
+          })
+          .eq('id', briefId);
+      }
+      
+      console.log(`Successfully generated ${generatedImageCount} images for brief_id: ${briefId}`);
     }
 
     console.log(`Finished processing all images for brief_id: ${briefId}`);
   } catch (error) {
     console.error(`Error processing images for brief ${briefId}:`, error);
+    
+    // Enhanced error logging
+    if (error instanceof Error) {
+      console.error({
+        errorName: error.name,
+        errorMessage: error.message,
+        errorStack: error.stack,
+        briefId
+      });
+      
+      // If it's a ZodError, log the specific issues for better debugging
+      if (error.name === 'ZodError' && 'issues' in error) {
+        console.error('Zod validation issues:', JSON.stringify(error.issues, null, 2));
+      }
+    }
+    
     // Set status to 'failed' on error
     if (supabase) {
       await supabase
         .from('briefs')
-        .update({ image_generation_status: 'failed' })
+        .update({ 
+          image_generation_status: 'failed',
+          error_message: error instanceof Error ? error.message : String(error)
+        })
         .eq('id', briefId);
     }
+    
     // Re-throw the error if you want the background task runner to know about the failure
     throw error;
   }
@@ -796,7 +992,7 @@ export async function generateElementImage(
     
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash-image-preview", 
+      model: "gemini-2.5-flash-image-preview", 
       contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
       generationConfig: {
         responseMimeType: "image/png", // PNG for potential transparency support
