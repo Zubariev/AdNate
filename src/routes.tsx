@@ -10,6 +10,9 @@ import { DesignsList } from './components/DesignsList';
 import Home from './pages/brief/home';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import LoadingScreen from './pages/brief/LoadingPage';
+import Terms from './pages/Terms';
+import Privacy from './pages/Policy';
+import Contact from './pages/Contact';
 
 export const routes: RouteObject[] = [
   {
@@ -47,6 +50,18 @@ export const routes: RouteObject[] = [
   {
     path: "/brief/loading",
     element: <ProtectedRoute><LoadingScreen /></ProtectedRoute>,
+  },
+  {
+    path: "/terms",
+    element: <Terms />,
+  },
+  {
+    path: "/privacy",
+    element: <Privacy />,
+  },
+  {
+    path: "/contact",
+    element: <Contact />,
   },
   {
     path: "*",
