@@ -38,7 +38,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setTimeout(() => {
       setSessionExpired(false);
       window.location.href = '/auth?expired=true';
-    }, 2000);
+    }, 3000);
   };
 
   // Session validation function
