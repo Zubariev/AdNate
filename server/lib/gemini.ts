@@ -28,11 +28,22 @@ function generateUUID(): string {
   }
   
   // Fallback implementation for environments without crypto.randomUUID
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+  // Following RFC4122 version 4 format
+  const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
   });
+  
+  // Validate the UUID to make sure it's properly formatted
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidPattern.test(uuid)) {
+    console.warn("Generated UUID failed validation, using hardcoded valid UUID");
+    // Use a hardcoded valid UUID as last resort
+    return "00000000-0000-4000-a000-000000000000";
+  }
+  
+  return uuid;
 }
 
 
@@ -477,21 +488,27 @@ export async function generateElementSpecifications(
         throw new Error('Could not generate temporary URL for reference image');
     }
 
-    // Step 3: Convert image to base64 for AI analysis
-    const base64Image = await storage.convertImageToBase64(tempImageUrl);
+    // Step 3: Get image URL for AI analysis instead of base64 (to reduce token count)
+    // const base64Image = await storage.convertImageToBase64(tempImageUrl);
     
     // Step 4: Build the element specification prompt
-    const elementSpecificationPrompt = `As a Senior Digital Production Artist with expertise in ad banner creation, analyze this reference banner design and generate SPECIFICATION SHEETS for each editable element. DO NOT describe what you see - instead, provide PRODUCTION-GRADE specifications for regenerating each element separately with perfect transparency.
+    const elementSpecificationPrompt = `As a Senior Digital Production Artist with expertise in ad banner creation, analyze this reference banner design and generate SPECIFICATION SHEETS for each editable element. Provide PRODUCTION-GRADE specifications for regenerating each element separately with perfect transparency.
 
 Reference banner concept:
-${JSON.stringify(concept)}
+${JSON.stringify({
+  id: concept.id,
+  title: concept.title,
+  description: concept.description,
+  // Include only essential concept data to reduce token count
+  elements: concept.elements
+})}
 
-Reference visual (for context only):
-  ${base64Image}
+Reference image URL (analyze this image):
+  ${tempImageUrl}
 
 CRITICAL INSTRUCTIONS:
 1. For each element, provide specifications as if briefing a designer who will recreate it from scratch
-2. NEVER describe the reference image - focus on production requirements
+2. Use the reference image as a guide, but focus on production requirements
 3. Text elements MUST specify: exact font family, size, weight, tracking, and color codes
 4. For graphics, specify: lighting continuity requirements, perspective angle, and transparency zones
 5. Identify which elements are "locked" (cannot be edited without breaking design)
@@ -543,10 +560,19 @@ Output STRICTLY as JSON with this structure:
   }]
 }`;
     const genAI = getGemini();
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-image-preview" });
+    
+    // Use Gemini's multimodal capability to send image as a part
     const elementSpecificationResponse = await model.generateContent([
-      { text: elementSpecificationPrompt + "\n\nIMPORTANT: Return ONLY valid JSON, no other text or markdown formatting." }
+      { 
+        text: elementSpecificationPrompt + "\n\nIMPORTANT: Return ONLY valid JSON, no other text or markdown formatting." 
+      },
+      {
+        inlineData: {
+          mimeType: referenceImage.mimeType || "image/png",
+          data: await storage.convertImageToBase64(tempImageUrl, true) // Get a compressed version
+        }
+      }
     ]);
 
     const elementSpecificationResponseText = elementSpecificationResponse.response?.text();
@@ -585,6 +611,41 @@ Output STRICTLY as JSON with this structure:
   }
 }
 
+/**
+ * Creates a default specification data structure with valid UUID elements
+ */
+function createDefaultSpecificationData(): ElementSpecificationData {
+  return {
+    background: {
+      type: "Background",
+      specification: "Default background specification",
+      regenerationPrompt: "Generate a simple, neutral background suitable for a banner ad"
+    },
+    elements: [
+      {
+        id: generateUUID(),
+        name: "default-element",
+        type: "Default",
+        purpose: "Default element for recovery",
+        editabilityRating: 5,
+        criticalConstraints: "None",
+        dimensions: { width: 300, height: 250 },
+        position: { x: 0, y: 0 },
+        layerDepth: 1,
+        transparencyRequirements: "Full transparency",
+        styleContinuityMarkers: "None",
+        regenerationPrompt: "Create a simple professional banner element with clear text",
+        lightingRequirements: "Standard lighting",
+        perspective: "Flat",
+        styleAnchors: "Clean, minimal design"
+      }
+    ]
+  };
+}
+
+/**
+ * Builds a detailed prompt from an element's properties
+ */
 function _buildDetailedPrompt(element: ElementSpecificationData['elements'][0]): string | null {
   const base_prompt = element.regenerationPrompt;
   if (!base_prompt) {
@@ -639,7 +700,7 @@ export async function processBriefImages(briefId: string, userId: string): Promi
           // First, check if this specific record has a conceptId stored in the database
           const { data: specRecord, error: specError } = await supabase
             .from('element_specifications')
-            .select('concept_id')
+            .select('concept_id, specification_data')
             .eq('id', record.id)
             .single();
             
@@ -679,24 +740,56 @@ export async function processBriefImages(briefId: string, userId: string): Promi
               record.conceptId = newConcept.id;
               console.log(`Created recovery concept with ID: ${record.conceptId}`);
               
-              // Update the record in the database with the new conceptId
+              // Create a default structure for specification data if it doesn't exist
+              if (!record.specificationData) {
+                record.specificationData = createDefaultSpecificationData();
+              }
+              
+              // Update the record in the database with the new conceptId and specification data
               await supabase
                 .from('element_specifications')
-                .update({ concept_id: record.conceptId })
+                .update({ 
+                  concept_id: record.conceptId,
+                  specification_data: record.specificationData
+                })
                 .eq('id', record.id);
             } else {
               record.conceptId = conceptData.id;
               console.log(`Found existing concept ID: ${record.conceptId}`);
               
-              // Update the record in the database with the found conceptId
+              // Create a default structure for specification data if it doesn't exist
+              if (!record.specificationData) {
+                record.specificationData = createDefaultSpecificationData();
+                console.log(`Created default specification data for record ${record.id}`);
+              }
+              
+              // Update the record in the database with the found conceptId and specification data
               await supabase
                 .from('element_specifications')
-                .update({ concept_id: record.conceptId })
+                .update({ 
+                  concept_id: record.conceptId,
+                  specification_data: record.specificationData
+                })
                 .eq('id', record.id);
             }
           } else {
             record.conceptId = specRecord.concept_id;
             console.log(`Retrieved conceptId from database: ${record.conceptId}`);
+            
+            // Create a default structure for specification data if it doesn't exist
+            if (!record.specificationData && specRecord.specification_data) {
+              record.specificationData = specRecord.specification_data;
+              console.log(`Retrieved specification data from database for record ${record.id}`);
+            } else if (!record.specificationData) {
+                record.specificationData = createDefaultSpecificationData();
+                console.log(`Created default specification data for record ${record.id}`);
+              
+              // Update the specification data in the database
+              await supabase
+                .from('element_specifications')
+                .update({ specification_data: record.specificationData })
+                .eq('id', record.id);
+            }
           }
         } else {
           console.error("Supabase client not available, cannot retrieve conceptId");
@@ -713,34 +806,9 @@ export async function processBriefImages(briefId: string, userId: string): Promi
           continue;
         }
         
-        // Create a default structure that meets the schema requirements
+        // Create a default structure that meets the schema requirements using our helper function
         // This allows processing to continue rather than skipping the record
-        const defaultSpecData = {
-          background: {
-            type: "Background",
-            specification: "Default background specification",
-            regenerationPrompt: "Generate a simple, neutral background suitable for a banner ad"
-          },
-          elements: [
-            {
-              id: generateUUID(),
-              name: "default-element",
-              type: "Default",
-              purpose: "Default element for recovery",
-              editabilityRating: 5,
-              criticalConstraints: "None",
-              dimensions: { width: 300, height: 250 },
-              position: { x: 0, y: 0 },
-              layerDepth: 1,
-              transparencyRequirements: "Full transparency",
-              styleContinuityMarkers: "None",
-              regenerationPrompt: "Create a simple professional banner element with clear text",
-              lightingRequirements: "Standard lighting",
-              perspective: "Flat",
-              styleAnchors: "Clean, minimal design"
-            }
-          ]
-        };
+        const defaultSpecData = createDefaultSpecificationData();
         
         // Update the record in the database with the default structure
         if (supabase) {
@@ -755,13 +823,51 @@ export async function processBriefImages(briefId: string, userId: string): Promi
         }
       }
       
+      // Add extra UUID validation for elements before parsing with Zod
+      if (record.specificationData && 
+          typeof record.specificationData === 'object' && 
+          'elements' in record.specificationData && 
+          Array.isArray(record.specificationData.elements)) {
+        // Validate or fix element IDs
+        record.specificationData.elements = record.specificationData.elements.map((element: Record<string, unknown>) => {
+          const elementId = element.id as string;
+          if (!elementId || typeof elementId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(elementId)) {
+            console.warn(`Element with invalid UUID detected in record ${record.id}, fixing...`);
+            return { ...element, id: generateUUID() };
+          }
+          return element;
+        });
+      }
+      
       const parseResult = elementSpecificationDataSchema.safeParse(record.specificationData);
 
+      let specData;
       if (!parseResult.success) {
         console.warn(`Validation failed for record ${record.id}: `, parseResult.error);
-        continue;
+        
+        // Replace with valid default if validation fails
+        record.specificationData = createDefaultSpecificationData();
+        
+        // Try one more time with the default data
+        const retryParseResult = elementSpecificationDataSchema.safeParse(record.specificationData);
+        if (!retryParseResult.success) {
+          console.error(`Validation still failed after using default data for record ${record.id}. Skipping.`);
+          continue;
+        }
+        
+        // Update the database with the fixed specification data
+        if (supabase) {
+          await supabase
+            .from('element_specifications')
+            .update({ specification_data: record.specificationData })
+            .eq('id', record.id);
+          console.log(`Updated record ${record.id} with fixed specification data`);
+        }
+        
+        specData = retryParseResult.data;
+      } else {
+        specData = parseResult.data;
       }
-      const specData = parseResult.data;
 
       if (!specData) {
         console.warn(`Parsed data is null for record ${record.id}.`);
@@ -777,7 +883,14 @@ export async function processBriefImages(briefId: string, userId: string): Promi
         }
         
         console.log(`--> Generating element ${element.id}`);
-        const originalImage = await generateElementImage(prompt, element.id, userId, briefId, record.conceptId);
+        const originalImage = await generateElementImage(
+          prompt, 
+          element.id, 
+          userId, 
+          briefId, 
+          record.conceptId,
+          record.referenceImageId || undefined // Pass the reference image ID from the element specification
+        );
         console.log(`<-- Finished generating element ${element.id}`);
 
         if (!originalImage.imageBase64) {
@@ -850,7 +963,14 @@ export async function processBriefImages(briefId: string, userId: string): Promi
         console.log("--> Starting generation for BACKGROUND.");
         // Background elementId is special
         const backgroundElementId = 'background';
-        const backgroundImage = await generateElementImage(prompt, backgroundElementId, userId, briefId, record.conceptId);
+        const backgroundImage = await generateElementImage(
+          prompt, 
+          backgroundElementId, 
+          userId, 
+          briefId, 
+          record.conceptId,
+          record.referenceImageId || undefined // Pass the reference image ID for background too
+        );
         if (backgroundImage) {
           console.log(`<-- Finished generation for BACKGROUND. Stored with id: ${backgroundImage.id}`);
           
@@ -958,17 +1078,46 @@ export async function getElementSpecifications(brief_id: string): Promise<Elemen
   if (!supabase) {
     throw new Error("Supabase client is not initialized.");
   }
+  
+  // Use explicit field mapping to ensure proper conversion from snake_case to camelCase
   const { data, error } = await supabase
     .from('element_specifications')
-    .select('*')
-    .eq('brief_id', brief_id)
+    .select(`
+      id, 
+      brief_id, 
+      concept_id, 
+      user_id, 
+      specification_data, 
+      prompt_used, 
+      reference_image_id, 
+      ai_model_used, 
+      generated_at, 
+      created_at, 
+      updated_at
+    `)
+    .eq('brief_id', brief_id);
   
   if (error) {
     console.error("Error fetching element specs:", error);
     throw error;
   }
   
-  return data || [];
+  // Map the results to correct property names
+  const mappedData = data?.map(spec => ({
+    id: spec.id,
+    briefId: spec.brief_id,
+    conceptId: spec.concept_id,
+    userId: spec.user_id,
+    specificationData: spec.specification_data,
+    promptUsed: spec.prompt_used,
+    referenceImageId: spec.reference_image_id,
+    aiModelUsed: spec.ai_model_used,
+    generatedAt: spec.generated_at,
+    createdAt: spec.created_at,
+    updatedAt: spec.updated_at
+  })) || [];
+  
+  return mappedData;
 }
 
 export async function generateElementImage(
@@ -977,23 +1126,110 @@ export async function generateElementImage(
   userId: string,
   briefId: string,
   conceptId: string,
+  referenceImageId?: string,
 ): Promise<ElementImage & { imageBase64: string }> {
   // Determine if this is a background element - these shouldn't have transparent backgrounds
   const isBackground = elementId === 'background';
   
-  // Create appropriate prompt based on element type
-  const finalPrompt = isBackground
-    ? `${prompt} Create a complete background design with rich details and proper context.`
-    : `${prompt} Create this element with a completely transparent background, showing ONLY the element described with no background.`;
+  // Create appropriate prompt based on element type and whether we're working with a reference
+  let finalPrompt: string;
+  
+  if (isBackground) {
+    finalPrompt = `${prompt} Create a complete background design with rich details and proper context.`;
+  } else {
+    finalPrompt = `${prompt} Create this element with a completely transparent background, showing ONLY the element described with no background.`;
+  }
   
   try {
     // First try with Gemini API
     console.log(`Attempting ${isBackground ? 'background' : 'element'} image generation with Gemini...`);
     
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    
+    // Try to get reference image if provided or fetch by conceptId
+    let referenceImageUrl: string | null = null;
+    let referenceImageBase64: string | null = null;
+    
+    try {
+      // Get reference image
+      let referenceImage: ReferenceImage | null = null;
+      if (referenceImageId) {
+        referenceImage = await storage.getReferenceImage(referenceImageId);
+      } else {
+        referenceImage = await storage.getLatestReferenceImageByConceptId(conceptId);
+      }
+  
+      if (referenceImage && referenceImage.imageUrl) {
+        const tempImageUrl = await storage.getPublicUrl('reference-images', referenceImage.imagePath || referenceImage.fileName || '');
+        if (tempImageUrl) {
+          // Store URL for logging and future use if needed
+          referenceImageUrl = tempImageUrl;
+          console.log(`Reference image URL: ${referenceImageUrl}`);
+          // Get a compressed version of the image for the API
+          referenceImageBase64 = await storage.convertImageToBase64(tempImageUrl, true);
+          console.log(`✅ Reference image found and will be used for ${isBackground ? 'background' : 'element'} generation`);
+          
+          // Enhance prompt with information that the element is in the reference image
+          if (!isBackground) {
+            finalPrompt = `VISUAL ANALYSIS TASK: Look carefully at the reference image provided and locate the specific element described as: "${prompt}". 
+
+This element exists in the reference image. Your task is to:
+1. Identify this exact element within the reference image
+2. Extract and reproduce ONLY this element with a perfectly transparent background
+3. Preserve the exact visual style, colors, lighting, and details of the element as shown in the reference
+4. Ensure the output contains ONLY the element described, with no background or other elements
+
+Element Description: ${prompt}
+
+Additional specifications: 
+- Maintain exact colors, gradients, and lighting effects
+- Preserve any shadows or highlights that are part of the element itself
+- Ensure crisp edges for text and graphic elements
+- Match the exact design style of the reference image`;
+          } else {
+            finalPrompt = `BACKGROUND GENERATION TASK: Analyze the reference image provided and create a standalone background that matches its style and aesthetic quality.
+
+Your task is to:
+1. Understand the overall visual style, color palette, and mood of the reference image
+2. Create a complete background design that would complement the elements in the reference
+3. Maintain the same lighting conditions, texture details, and visual atmosphere 
+4. Create a rich, detailed background that feels like it belongs to the same design system
+
+Background Description: ${prompt}
+
+Additional specifications:
+- Match the exact color palette of the reference image
+- Preserve lighting direction and quality
+- Replicate textures and patterns where appropriate
+- Ensure the background would work well with the elements from the reference`;
+          }
+        }
+      }
+    } catch (refErr) {
+      // Don't fail if reference image can't be fetched, just log and continue
+      console.warn(`⚠️ Failed to fetch reference image for ${isBackground ? 'background' : 'element'} generation:`, refErr);
+    }
+    
+    // Prepare content for Gemini API
+    
+    // If we have reference image, add multimodal part
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-image-preview", 
-      contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
+      contents: referenceImageBase64 ? [
+        { 
+          role: "user", 
+          parts: [
+            { text: `IMPORTANT REFERENCE IMAGE: This image contains the ${isBackground ? 'style reference for background generation' : 'element you need to extract and reproduce'}:` },
+            {
+              inlineData: {
+                mimeType: "image/png",
+                data: referenceImageBase64
+              }
+            },
+            { text: finalPrompt }
+          ]
+        }
+      ] : [{ role: "user", parts: [{ text: finalPrompt }] }],
       generationConfig: {
         responseMimeType: "image/png", // PNG for potential transparency support
         temperature: 0.7,

@@ -23,7 +23,7 @@ export interface IStorage {
   getReferenceImage(id: string): Promise<ReferenceImage | null>;
   getLatestReferenceImageByConceptId(conceptId: string): Promise<ReferenceImage | null>;
   getImageName(referenceImageId: string): Promise<string>;
-  convertImageToBase64(imageUrl: string): Promise<string>;
+  convertImageToBase64(imageUrl: string, compress?: boolean): Promise<string>;
   findReferenceImage(params: { userId: string; briefId: string; conceptId: string }): Promise<ReferenceImage | null>;
   findOrphanedImageInStorage(conceptId: string): Promise<{ path: string; name: string } | null>;
   createReferenceImageRecord(data: InsertReferenceImage): Promise<ReferenceImage>;
@@ -417,11 +417,23 @@ export class DatabaseStorage implements IStorage {
     return image.fileName;
   }
 
-  async convertImageToBase64(imageUrl: string): Promise<string> {
+  async convertImageToBase64(imageUrl: string, compress: boolean = false): Promise<string> {
     try {
       const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
       const buffer = Buffer.from(response.data as ArrayBuffer);
-      return buffer.toString('base64');
+      
+      // Return base64 data directly
+      const base64 = buffer.toString('base64');
+      
+      if (!compress) {
+        // For image models, we need the data:image format
+        const mimeType = response.headers['content-type'] || 'image/png';
+        return `data:${mimeType};base64,${base64}`;
+      }
+      
+      // Just return the raw base64 string when compression is requested
+      // This is slightly smaller as it doesn't include the data:image prefix
+      return base64;
     } catch (error) {
       console.error('Error converting image to base64:', error);
       throw new Error('Failed to convert image to base64.');
@@ -559,6 +571,7 @@ class InMemoryStorage implements IStorage {
         imagePath: path,
         fileName: path,
         ...data,
+        imageData: data.imageData || {},
         createdAt: new Date(),
         updatedAt: new Date(),
         fileSize: null,
@@ -579,6 +592,8 @@ class InMemoryStorage implements IStorage {
         imagePath: path,
         fileName: path,
         ...data,
+        imageData: data.imageData || {},
+        imageType: data.imageType,
         createdAt: new Date(),
         updatedAt: new Date(),
         fileSize: null,
@@ -601,9 +616,18 @@ class InMemoryStorage implements IStorage {
       console.log(`In-memory storage: Creating reference image record`);
       const newImage: ReferenceImage = {
           id: uuidv4(),
+          userId: data.userId,
+          briefId: data.briefId,
+          conceptId: data.conceptId,
+          imageUrl: data.imageUrl,
+          imagePath: data.imagePath || null,
+          fileName: data.fileName || null,
+          fileSize: data.fileSize || null,
+          mimeType: data.mimeType || null,
+          imageData: data.imageData || {},
+          promptUsed: data.promptUsed,
           createdAt: new Date(),
-          updatedAt: new Date(),
-          ...data
+          updatedAt: new Date()
       };
       return newImage;
   }
@@ -652,9 +676,9 @@ class InMemoryStorage implements IStorage {
     return "mock-image-name.png";
   }
 
-  async convertImageToBase64(imageUrl: string): Promise<string> {
-    console.log(`In-memory storage: Converting image to base64 for url ${imageUrl}`);
-    return "mock-base64-string";
+  async convertImageToBase64(imageUrl: string, compress: boolean = false): Promise<string> {
+    console.log(`In-memory storage: Converting image to base64 for url ${imageUrl}, compress: ${compress}`);
+    return compress ? "mock-base64-string" : "data:image/png;base64,mock-base64-string";
   }
 }
 

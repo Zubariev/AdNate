@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { storage } from '../storage.js';
 import { supabase } from '../db.js';
 import { enhanceBrief, generateConceptsFromEnhancedBrief, BriefInput, EnhancedBriefOutput, generateReferenceImage, generateElementSpecifications, processBriefImages } from '../lib/gemini.js';
-import { briefFormSchema, InsertBrief, InsertConcept, RawConcept, InsertSelectedConcept, InsertReferenceImage } from "@shared/schema";
+import { briefFormSchema, InsertBrief, InsertConcept, RawConcept, InsertSelectedConcept } from "@shared/schema";
 import { ZodError } from 'zod';
 import { protect } from '../middleware/auth.js';
 import { EnhancedBriefData } from '../../src/types.js';
@@ -102,7 +102,46 @@ router.post('/:briefId/enhance', protect, async (req, res) => {
       enhancedBrief: enhancedContent,
     });
 
-    res.status(200).json(updatedBrief);
+    // Automatically generate concepts after enhancing the brief
+    try {
+      console.log(`Auto-generating concepts for brief with ID: ${briefId}`);
+      
+      // Generate concepts using the enhanced brief
+      const conceptsFromLLM: RawConcept[] = await generateConceptsFromEnhancedBrief(enhancedContent);
+      
+      // Format concepts for storage
+      const insertedConcepts: Omit<InsertConcept, 'briefId'>[] = conceptsFromLLM.map(concept => ({
+        title: concept.title,
+        description: concept.description || undefined,
+        elements: concept.elements || {},
+        midjourneyPrompts: concept.midjourneyPrompts || {},
+        rationale: concept.rationale || {},
+      }));
+      
+      // Save each concept to the database
+      const savedConcepts = await Promise.all(insertedConcepts.map(async (concept) => {
+        return await storage.saveConcept(brief.id, concept);
+      }));
+      
+      console.log(`Successfully auto-generated ${savedConcepts.length} concepts for brief ${briefId}`);
+      
+      // Include the saved concepts in the response
+      const responseWithConcepts = {
+        ...updatedBrief,
+        concepts: savedConcepts,
+        conceptsGenerated: true
+      };
+      
+      res.status(200).json(responseWithConcepts);
+    } catch (conceptError) {
+      // If concept generation fails, still return the enhanced brief but log the error
+      console.error(`Failed to auto-generate concepts: ${conceptError}`);
+      res.status(200).json({
+        ...updatedBrief,
+        conceptsGenerated: false,
+        conceptsError: (conceptError as Error).message
+      });
+    }
   } catch (error) {
     console.error('Error enhancing brief:', error);
     res.status(500).json({ message: (error as Error).message || 'Failed to enhance brief' });
@@ -215,6 +254,11 @@ router.get('/:briefId/selected-concept', protect, async (req, res) => {
 router.get('/:briefId/image-generation-status', protect, async (req, res) => {
   try {
     const { briefId } = req.params;
+    
+    if (!supabase) {
+      return res.status(503).json({ message: 'Database service is not available' });
+    }
+    
     // Query the status directly from the database to avoid any caching
     const { data, error } = await supabase
       .from('briefs')
@@ -262,7 +306,7 @@ router.post('/:briefId/generate-reference-image', protect, async (req, res) => {
     }
 
     // Check for an existing reference image first
-    let existingImage = await storage.findReferenceImage({
+    const existingImage = await storage.findReferenceImage({
       userId: req.user.id,
       briefId: brief.id,
       conceptId: concept.id
