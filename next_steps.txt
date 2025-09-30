@@ -1,0 +1,16 @@
+1. wipe 3 concepts from Brief page once briefs.image_generation_status == "completed".
+
+2. fix timeout issue on Brief page while brief enhancement proces and 3 concepts creation. 
+Possible resolve: redirect user to the Loading page untill these process have been done.
+
+3. redirect user to an editor page after briefs.image_generation_status == "completed".
+
+4. place elemnts images on the canvas at editor page the user has been redirected. 
+
+5. count LLM input tockens limits, create tocken limits for prompts. 
+
+6. check if the background is REALLY transparent for elements generated: 
+did I stored the same unprocessed (backgroud removal) image?
+
+7. clean up unused files (e.g. huggingface.tsx). fix relations to these files. 
+
