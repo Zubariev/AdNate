@@ -407,4 +407,184 @@ router.post('/:briefId/generate-element-specifications', protect, async (req, re
   }
 });
 
+// Get element images for a brief
+router.get('/:briefId/element-images', protect, async (req, res) => {
+  try {
+    const { briefId } = req.params;
+    const userId = req.user?.id;
+    
+    console.log(`Fetching element images for briefId: ${briefId}, userId: ${userId}`);
+    
+    if (!supabase) {
+      return res.status(503).json({ message: 'Database service is not available' });
+    }
+    
+    // Use service key client but filter by user_id to respect user data isolation
+    const { data, error } = await supabase
+      .from('element_images')
+      .select('*')
+      .eq('brief_id', briefId)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+
+    console.log('Element images query result:', { data, error });
+    
+    if (error) throw error;
+    
+    // Map snake_case to camelCase for frontend compatibility
+    const mappedData = data?.map(item => ({
+      id: item.id,
+      brief_id: item.brief_id,
+      concept_id: item.concept_id,
+      element_id: item.element_id,
+      image_url: item.image_url,
+      image_path: item.image_path,
+      file_name: item.file_name,
+      file_size: item.file_size,
+      mime_type: item.mime_type,
+      image_data: item.image_data,
+      prompt_used: item.prompt_used,
+      image_type: item.image_type,
+      created_at: item.created_at,
+      updated_at: item.updated_at
+    })) || [];
+    
+    res.status(200).json(mappedData);
+  } catch (error) {
+    console.error('Error fetching element images:', error);
+    res.status(500).json({ message: (error as Error).message || 'Failed to fetch element images' });
+  }
+});
+
+// Get element specifications for a brief
+router.get('/:briefId/element-specifications', protect, async (req, res) => {
+  try {
+    const { briefId } = req.params;
+    const userId = req.user?.id;
+    
+    console.log(`Fetching element specifications for briefId: ${briefId}, userId: ${userId}`);
+    
+    if (!supabase) {
+      return res.status(503).json({ message: 'Database service is not available' });
+    }
+    
+    // Use service key client but filter by user_id to respect user data isolation
+    const { data, error } = await supabase
+      .from('element_specifications')
+      .select(`
+        id, 
+        brief_id, 
+        concept_id, 
+        user_id, 
+        specification_data, 
+        prompt_used, 
+        reference_image_id, 
+        ai_model_used, 
+        generated_at, 
+        created_at, 
+        updated_at
+      `)
+      .eq('brief_id', briefId)
+      .eq('user_id', userId);
+    
+    console.log('Element specifications query result:', { data, error });
+    
+    if (error) throw error;
+    
+    // Map the results to correct property names
+    const mappedData = data?.map(spec => ({
+      id: spec.id,
+      briefId: spec.brief_id,
+      conceptId: spec.concept_id,
+      userId: spec.user_id,
+      specificationData: spec.specification_data,
+      promptUsed: spec.prompt_used,
+      referenceImageId: spec.reference_image_id,
+      aiModelUsed: spec.ai_model_used,
+      generatedAt: spec.generated_at,
+      createdAt: spec.created_at,
+      updatedAt: spec.updated_at
+    })) || [];
+    
+    res.status(200).json(mappedData);
+  } catch (error) {
+    console.error('Error fetching element specifications:', error);
+    res.status(500).json({ message: (error as Error).message || 'Failed to fetch element specifications' });
+  }
+});
+
+// Debug endpoint to check if element images exist in database
+router.get('/:briefId/debug-element-images', protect, async (req, res) => {
+  try {
+    const { briefId } = req.params;
+    const userId = req.user?.id;
+    
+    console.log(`Debug: Checking element images for briefId: ${briefId}, userId: ${userId}`);
+    
+    if (!supabase) {
+      return res.status(503).json({ message: 'Database service is not available' });
+    }
+    
+    // Check with service key (bypasses RLS)
+    const { data: serviceData, error: serviceError } = await supabase
+      .from('element_images')
+      .select('*')
+      .eq('brief_id', briefId);
+    
+    console.log('Service key query result:', { data: serviceData, error: serviceError });
+    
+    // Check with user filtering
+    const { data: userData, error: userError } = await supabase
+      .from('element_images')
+      .select('*')
+      .eq('brief_id', briefId)
+      .eq('user_id', userId);
+    
+    console.log('User filtered query result:', { data: userData, error: userError });
+    
+    res.status(200).json({
+      briefId,
+      userId,
+      serviceKeyResult: { data: serviceData, error: serviceError },
+      userFilteredResult: { data: userData, error: userError }
+    });
+    
+  } catch (error) {
+    console.error('Debug endpoint error:', error);
+    res.status(500).json({ message: (error as Error).message || 'Debug endpoint failed' });
+  }
+});
+
+// Temporary endpoint to check data without RLS (for debugging)
+router.get('/:briefId/temp-check-data', async (req, res) => {
+  try {
+    const { briefId } = req.params;
+    
+    console.log(`Temp check: Looking for data with briefId: ${briefId}`);
+    
+    if (!supabase) {
+      return res.status(503).json({ message: 'Database service is not available' });
+    }
+    
+    // Use service key to bypass RLS
+    const [elementImagesResult, specificationsResult] = await Promise.all([
+      supabase.from('element_images').select('*').eq('brief_id', briefId),
+      supabase.from('element_specifications').select('*').eq('brief_id', briefId)
+    ]);
+    
+    console.log('Element images (service key):', elementImagesResult);
+    console.log('Element specifications (service key):', specificationsResult);
+    
+    res.status(200).json({
+      briefId,
+      elementImages: elementImagesResult,
+      specifications: specificationsResult
+    });
+    
+  } catch (error) {
+    console.error('Temp check error:', error);
+    res.status(500).json({ message: (error as Error).message || 'Temp check failed' });
+  }
+});
+
 export default router; 

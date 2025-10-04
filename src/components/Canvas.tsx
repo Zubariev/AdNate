@@ -6,35 +6,35 @@ import CustomSizeDialog from './CustomSizeDialog.tsx';
 
 interface CanvasProps {
   elements: Element[];
-  setElements: (elements: Element[]) => void;
   selectedElement: Element | null;
   onSelectElement: (element: Element | null) => void;
-  width?: number;
-  height?: number;
-  onSizeChange?: (width: number, height: number) => void;
+  onUpdateElement: (id: string, updates: Partial<Element>) => void;
+  onDeleteElement: (id: string) => void;
+  onDuplicateElement: (id: string) => void;
+  canvasSize: { width: number; height: number };
+  zoom: number;
 }
 
 const Canvas = forwardRef<HTMLDivElement, CanvasProps>(({ 
   elements, 
-  setElements,
   selectedElement,
   onSelectElement,
-  width = 800, 
-  height = 600,
-  onSizeChange
+  onUpdateElement,
+  onDeleteElement,
+  onDuplicateElement,
+  canvasSize,
+  zoom
 }, ref) => {
-  const [zoom, setZoom] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
   const [isCustomSizeOpen, setIsCustomSizeOpen] = useState(false);
 
   const handleZoom = (delta: number) => {
-    setZoom(prev => Math.max(0.1, Math.min(2, prev + delta)));
+    // Zoom is now controlled by parent component
+    // This could be removed or handled differently
   };
 
   const handleUpdateElement = (updatedElement: Element) => {
-    setElements(elements.map(el => 
-      el.id === updatedElement.id ? updatedElement : el
-    ));
+    onUpdateElement(updatedElement.id, updatedElement);
   };
 
   return (
@@ -62,8 +62,8 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(({
         <div
           className="relative mx-auto my-8 bg-white shadow-lg"
           style={{
-            width,
-            height,
+            width: canvasSize.width,
+            height: canvasSize.height,
             transform: `scale(${zoom})`,
             transformOrigin: 'center',
           }}
@@ -76,7 +76,7 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(({
               isSelected={selectedElement?.id === element.id}
               onSelect={() => onSelectElement(element)}
               onUpdate={handleUpdateElement}
-              onDelete={(id) => setElements(elements.filter(el => el.id !== id))}
+              onDelete={onDeleteElement}
               isDragging={isDragging}
               setIsDragging={setIsDragging}
             />
@@ -87,10 +87,10 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(({
         isOpen={isCustomSizeOpen}
         onClose={() => setIsCustomSizeOpen(false)}
         onApply={(w, h) => {
-          if (onSizeChange) onSizeChange(w, h);
+          // Size changes are now handled by parent component
         }}
-        currentWidth={width}
-        currentHeight={height}
+        currentWidth={canvasSize.width}
+        currentHeight={canvasSize.height}
       />
     </div>
   );

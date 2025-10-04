@@ -139,7 +139,7 @@ export default function LoadingScreen() {
             title: 'Success!',
             description: 'All ad elements have been generated.',
           });
-          setTimeout(() => navigate('/editor'), 3000);
+          setTimeout(() => navigate(`/editor?briefId=${briefId}`), 3000);
         } else if (status === 'failed') {
           if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
           toast({
@@ -300,7 +300,7 @@ export default function LoadingScreen() {
       </div>
 
       {/* Loading type title */}
-      <h2 className="text-xl font-semibold text-purple-300 mb-2">
+      <h2 className="mb-2 text-xl font-semibold text-purple-300">
         {loadingType === "concepts" ? "Generating Creative Concepts" : "Creating Ad Elements"}
       </h2>
 
@@ -310,7 +310,7 @@ export default function LoadingScreen() {
       </p>
 
       {/* Subtitle with expected time */}
-      <p className="text-sm text-gray-400 mt-6">
+      <p className="mt-6 text-sm text-gray-400">
         {loadingType === "concepts" 
           ? "This may take 30-60 seconds. Analyzing your brief and generating 3 unique concepts..." 
           : "This may take 2-3 minutes. Creating each element with perfect transparency..."}

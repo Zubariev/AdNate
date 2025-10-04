@@ -30,6 +30,7 @@ const handleSaveDesign = async () => {
 }; 
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card } from './ui/card';
@@ -45,8 +46,63 @@ import { saveDesign, updateDesign, autoSaveDesign, cancelAutoSave } from '../lib
 import { useToast } from './ui/use-toast';
 import { sanitizeDesignText } from "../lib/sanitization";
 import { validateDesign, validateDesignElement } from "../lib/validations";
+import { apiClient } from '../lib/apiClient';
 
 // TypeScript interfaces
+interface ElementImage {
+  id: string;
+  brief_id: string;
+  concept_id: string;
+  element_id: string;
+  image_url: string;
+  image_path?: string;
+  file_name?: string;
+  file_size?: number;
+  mime_type?: string;
+  image_data?: any;
+  prompt_used: string;
+  image_type: 'original' | 'transparent';
+  created_at: string;
+  updated_at: string;
+}
+
+interface ElementSpecification {
+  id: string;
+  briefId: string;
+  conceptId: string;
+  userId: string;
+  specificationData: {
+    background: {
+      type: string;
+      specification: string;
+      regenerationPrompt: string;
+    };
+    elements: Array<{
+      id: string;
+      name: string;
+      type: string;
+      purpose: string;
+      editabilityRating: number;
+      criticalConstraints: string;
+      dimensions: { width: number; height: number };
+      position: { x: number; y: number };
+      layerDepth: number;
+      transparencyRequirements: string;
+      styleContinuityMarkers: string;
+      regenerationPrompt: string;
+      lightingRequirements: string;
+      perspective: string;
+      styleAnchors: string;
+    }>;
+  };
+  promptUsed: string;
+  referenceImageId?: string;
+  aiModelUsed: string;
+  generatedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface DesignElement {
   id: string;
   type: 'text' | 'image' | 'shape' | 'icon' | 'line'; // Added 'line'
@@ -85,7 +141,7 @@ interface DesignEditorProps {
 const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSave, onExport, designId }) => {
   const [elements, setElements] = useState<DesignElement[]>(initialElements);
   const [selectedElement, setSelectedElement] = useState<DesignElement | null>(null);
-  const [canvasSize, setCanvasSize] = useState<CanvasSize>({ width: 800, height: 600 });
+  const [canvasSize, setCanvasSize] = useState<CanvasSize>({ width: 1000, height: 1000 }); // Default to square canvas
   const [showImageGenerator, setShowImageGenerator] = useState<boolean>(false);
   const [showCustomSizeDialog, setShowCustomSizeDialog] = useState<boolean>(false);
   const [designName, setDesignName] = useState<string>('Untitled Design');
@@ -96,13 +152,206 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const autoSaveIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentDesignId = useRef(designId); // Use ref to keep track of the latest designId
+  const [searchParams] = useSearchParams();
+  const [isLoadingElements, setIsLoadingElements] = useState<boolean>(false);
+
+  // Function to load elements from brief
+  const loadElementsFromBrief = async (briefId: string) => {
+    setIsLoadingElements(true);
+    try {
+      // Fetch element images and specifications
+      const [elementImagesResponse, specificationsResponse] = await Promise.all([
+        apiClient.get<ElementImage[]>(`/briefs/${briefId}/element-images`),
+        apiClient.get<ElementSpecification[]>(`/briefs/${briefId}/element-specifications`)
+      ]);
+
+      const elementImages = elementImagesResponse.data;
+      const specifications = specificationsResponse.data;
+
+      console.log('Element Images Response:', elementImages);
+      console.log('Specifications Response:', specifications);
+
+      // Debug: Log the element IDs to understand the mismatch
+      console.log('Element Image IDs:', elementImages.map(img => img.element_id));
+      console.log('Specification Element IDs:', specifications[0]?.specificationData?.elements?.map(el => el.id));
+
+      // Debug: Also try the debug endpoint
+      try {
+        const debugResponse = await apiClient.get(`/briefs/${briefId}/debug-element-images`);
+        console.log('Debug endpoint response:', debugResponse.data);
+      } catch (debugError) {
+        console.error('Debug endpoint error:', debugError);
+      }
+
+      // Debug: Try temp check endpoint (bypasses RLS)
+      try {
+        const tempResponse = await apiClient.get(`/briefs/${briefId}/temp-check-data`);
+        console.log('Temp check response:', tempResponse.data);
+      } catch (tempError) {
+        console.error('Temp check error:', tempError);
+      }
+
+      if (!elementImages.length || !specifications.length) {
+        toast({
+          title: 'No Elements Found',
+          description: 'No generated elements found for this brief.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Get the latest specification
+      const latestSpec = specifications[0];
+      const specElements = latestSpec.specificationData.elements;
+
+      console.log('Processing spec elements:', specElements);
+
+      // Create design elements from specifications and images
+      const designElements: DesignElement[] = [];
+
+      for (const specElement of specElements) {
+        console.log(`Processing spec element: ${specElement.id} (${specElement.type})`);
+        
+        // Find the corresponding image (prefer transparent version)
+        // Try exact match first
+        let elementImage = elementImages.find(img => 
+          img.element_id === specElement.id && img.image_type === 'transparent'
+        ) || elementImages.find(img => img.element_id === specElement.id);
+
+        // If no exact match, try to match by concept_id and element type
+        if (!elementImage) {
+          // Extract the concept ID from the spec element ID (first 5 parts for UUID)
+          const specIdParts = specElement.id.split('-');
+          if (specIdParts.length >= 5) {
+            // Take the first 5 parts to get the full concept ID UUID
+            const conceptId = specIdParts.slice(0, 5).join('-');
+            
+            // Find images with matching concept_id
+            const conceptImages = elementImages.filter(img => img.concept_id === conceptId);
+            
+            console.log(`Trying concept-based matching for ${specElement.id}:`, {
+              conceptId,
+              conceptImagesCount: conceptImages.length,
+              conceptImages: conceptImages.map(img => ({ element_id: img.element_id, image_type: img.image_type }))
+            });
+            
+            // Since the element_id values don't match, we'll need to match by order
+            // Get the index of this spec element
+            const specIndex = specElements.indexOf(specElement);
+            
+            // Filter out background images for non-background elements
+            const nonBackgroundImages = conceptImages.filter(img => img.element_id !== 'background');
+            
+            // Try to match by order (assuming images are generated in the same order as specifications)
+            if (specIndex < nonBackgroundImages.length) {
+              // Prefer transparent version
+              elementImage = nonBackgroundImages.find(img => 
+                img.element_id === nonBackgroundImages[specIndex].element_id && 
+                img.image_type === 'transparent'
+              ) || nonBackgroundImages[specIndex];
+              
+              console.log(`Matched by order (index ${specIndex}):`, {
+                matchedElementId: elementImage?.element_id,
+                imageType: elementImage?.image_type,
+                found: elementImage ? 'YES' : 'NO'
+              });
+            }
+          }
+        }
+
+        console.log(`Found image for ${specElement.id}:`, elementImage ? 'YES' : 'NO');
+
+        if (elementImage) {
+          // Map specification types to design element types
+          let elementType: 'text' | 'image' | 'shape' | 'icon' | 'line';
+          switch (specElement.type.toLowerCase()) {
+            case 'text':
+              elementType = 'text';
+              break;
+            case 'cta':
+            case 'shape':
+              elementType = 'shape';
+              break;
+            case 'graphics':
+            case 'image':
+              elementType = 'image';
+              break;
+            default:
+              elementType = 'image'; // Default to image for unknown types
+          }
+
+          const designElement: DesignElement = {
+            id: specElement.id,
+            type: elementType,
+            x: specElement.position.x,
+            y: specElement.position.y,
+            width: specElement.dimensions.width,
+            height: specElement.dimensions.height,
+            rotation: 0,
+            content: elementImage.image_url,
+            opacity: 1,
+            layerDepth: specElement.layerDepth,
+            locked: false,
+            // Add text-specific properties if it's a text element
+            ...(elementType === 'text' && {
+              fontSize: 20,
+              fontFamily: 'Arial',
+              color: '#000000',
+              backgroundColor: 'transparent',
+              isBold: false,
+              isItalic: false,
+            }),
+            // Add shape-specific properties if it's a shape element
+            ...(elementType === 'shape' && {
+              backgroundColor: '#cccccc',
+              shapeType: 'rectangle',
+            }),
+          };
+          designElements.push(designElement);
+          console.log(`Added design element: ${designElement.id}`);
+        } else {
+          console.log(`No image found for spec element: ${specElement.id}`);
+        }
+      }
+
+      console.log(`Total design elements created: ${designElements.length}`);
+
+      // Sort by layer depth (lower depth = background, higher depth = foreground)
+      designElements.sort((a, b) => a.layerDepth - b.layerDepth);
+
+      setElements(designElements);
+      
+      toast({
+        title: 'Elements Loaded',
+        description: `Successfully loaded ${designElements.length} elements from the brief.`,
+      });
+
+    } catch (error) {
+      console.error('Error loading elements from brief:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load elements from brief.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingElements(false);
+    }
+  };
 
   useEffect(() => {
-    // Set the initial design name if elements are provided
-    if (initialElements.length > 0 && initialElements[0].content) {
-      // Assuming the first element might hold the design name if not explicitly set
-      // Or a more robust way to get the name if it's stored elsewhere
-      // For now, we stick to the state variable
+    // Check if we have a briefId in URL params
+    const briefId = searchParams.get('briefId');
+    
+    if (briefId) {
+      // Load elements from brief
+      loadElementsFromBrief(briefId);
+    } else if (initialElements.length > 0) {
+      // Set the initial design name if elements are provided
+      if (initialElements[0].content) {
+        // Assuming the first element might hold the design name if not explicitly set
+        // Or a more robust way to get the name if it's stored elsewhere
+        // For now, we stick to the state variable
+      }
     }
 
     // Start auto-save if a designId is present
@@ -116,7 +365,7 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
         cancelAutoSave(autoSaveIntervalRef.current);
       }
     };
-  }, []); // Empty dependency array ensures this runs only on mount
+  }, [searchParams]); // Add searchParams to dependency array
 
   useEffect(() => {
     // Update the designId ref if it changes
@@ -371,9 +620,21 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
     addElement(baseShape as any); // Cast to any to satisfy the type, as addElement expects DesignElement['type']
   }, [addElement]);
 
+  if (isLoadingElements) {
+    return (
+      <div className="flex flex-col justify-center items-center h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="mx-auto mb-4 w-12 h-12 rounded-full border-b-2 border-blue-600 animate-spin"></div>
+          <h2 className="mb-2 text-xl font-semibold text-gray-700">Loading Design Elements</h2>
+          <p className="text-gray-500">Please wait while we load your generated design elements...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+    <div className="flex flex-col h-screen bg-gray-50">
+      <div className="flex justify-between items-center p-4 bg-white border-b border-gray-200">
         <div className="flex items-center space-x-4">
           <Input
             value={designName}
@@ -381,7 +642,7 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
               setDesignName(e.target.value);
               // Optionally trigger an update/save here if design name change should be persisted immediately
             }}
-            className="text-lg font-semibold border-none shadow-none max-w-sm" // Added max-width for better layout
+            className="max-w-sm text-lg font-semibold border-none shadow-none" // Added max-width for better layout
             placeholder="Untitled Design"
           />
         </div>
@@ -407,13 +668,13 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        <div className="w-64 bg-white border-r border-gray-200 overflow-y-auto p-4">
-          <h3 className="text-lg font-semibold mb-4">Elements</h3>
+      <div className="flex overflow-hidden flex-1">
+        <div className="overflow-y-auto p-4 w-64 bg-white border-r border-gray-200">
+          <h3 className="mb-4 text-lg font-semibold">Elements</h3>
           <ElementPanel onAddElement={addElement} />
         </div>
 
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex overflow-hidden flex-col flex-1">
           <Toolbar 
             onAddText={addText}
             onAddShape={addShape}
@@ -426,7 +687,7 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
             saveStatus={saveStatus}
             lastSaved={lastSaved}
           />
-          <div className="flex-1 overflow-auto p-8 bg-gray-100 relative" ref={canvasRef}>
+          <div className="overflow-auto relative flex-1 p-8 bg-gray-100" ref={canvasRef}>
             <div style={{ width: canvasSize.width, height: canvasSize.height, transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
               <Canvas
                 elements={elements}
@@ -442,8 +703,8 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
           </div>
         </div>
 
-        <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto p-4">
-          <h3 className="text-lg font-semibold mb-4">Layers</h3>
+        <div className="overflow-y-auto p-4 w-80 bg-white border-l border-gray-200">
+          <h3 className="mb-4 text-lg font-semibold">Layers</h3>
           <LayerPanel
             elements={elements}
             selectedElement={selectedElement}
@@ -452,8 +713,8 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
             onDeleteElement={deleteElement}
           />
           {selectedElement && (
-            <div className="mt-6 border-t border-gray-200 pt-4">
-              <h3 className="text-lg font-semibold mb-4">Properties</h3>
+            <div className="pt-4 mt-6 border-t border-gray-200">
+              <h3 className="mb-4 text-lg font-semibold">Properties</h3>
               <PropertiesPanel
                 element={selectedElement}
                 onUpdateElement={(updates) => updateElement(selectedElement.id, updates)}
