@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Element } from '../types';
-import * as Icons from 'lucide-react';
 
 interface DesignElementProps {
   element: Element;
@@ -191,14 +190,8 @@ const DesignElement: React.FC<DesignElementProps> = ({
   };
 
   const renderIcon = () => {
-    if (!element.iconName || !(element.iconName in Icons)) return null;
-    const IconComponent = Icons[element.iconName as keyof typeof Icons];
-    return (
-      <IconComponent 
-        className="w-full h-full" 
-        style={{ color: element.color }} 
-      />
-    );
+    // Icon rendering removed since icon type is not supported
+    return null;
   };
 
   const elementStyle: React.CSSProperties = {
@@ -249,7 +242,6 @@ const DesignElement: React.FC<DesignElementProps> = ({
           )
         )}
         {element.type === 'shape' && renderShape()}
-        {element.type === 'icon' && renderIcon()}
         {element.type === 'image' && (
           <img
             src={element.content}
@@ -257,17 +249,44 @@ const DesignElement: React.FC<DesignElementProps> = ({
             className="object-cover w-full h-full"
           />
         )}
+        {element.type === 'line' && (
+          <div 
+            className="w-full h-full border-t-2"
+            style={{ borderColor: element.color }}
+          />
+        )}
       </div>
 
       {isSelected && !element.locked && (
         <>
-          <div className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-nw-resize -top-1 -left-1" />
-          <div className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-n-resize top-0 left-1/2" />
-          <div className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-ne-resize -top-1 -right-1" />
-          <div className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-w-resize top-1/2 -left-1" />
-          <div className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-e-resize top-1/2 -right-1" />
-          <div className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-sw-resize -bottom-1 -left-1" />
-          <div className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-s-resize bottom-0 left-1/2" />
+          <div 
+            className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-nw-resize -top-1 -left-1"
+            onMouseDown={(e) => handleResize(e, 'nw')}
+          />
+          <div 
+            className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-n-resize top-0 left-1/2"
+            onMouseDown={(e) => handleResize(e, 'n')}
+          />
+          <div 
+            className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-ne-resize -top-1 -right-1"
+            onMouseDown={(e) => handleResize(e, 'ne')}
+          />
+          <div 
+            className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-w-resize top-1/2 -left-1"
+            onMouseDown={(e) => handleResize(e, 'w')}
+          />
+          <div 
+            className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-e-resize top-1/2 -right-1"
+            onMouseDown={(e) => handleResize(e, 'e')}
+          />
+          <div 
+            className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-sw-resize -bottom-1 -left-1"
+            onMouseDown={(e) => handleResize(e, 'sw')}
+          />
+          <div 
+            className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-s-resize bottom-0 left-1/2"
+            onMouseDown={(e) => handleResize(e, 's')}
+          />
           <div
             className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-se-resize -bottom-1 -right-1"
             onMouseDown={(e) => handleResize(e, 'se')}

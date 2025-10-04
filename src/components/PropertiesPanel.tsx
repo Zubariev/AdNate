@@ -3,19 +3,17 @@ import { Element } from '../types.ts';
 import { ChevronUp, ChevronDown, Copy, Trash, Bold, Italic } from 'lucide-react';
 
 interface PropertiesPanelProps {
-  selectedElement: Element | null;
-  onUpdateElement: (element: Element) => void;
+  element: Element;
+  onUpdateElement: (id: string, updates: Partial<Element>) => void;
   onDeleteElement: (id: string) => void;
-  onDuplicateElement: (element: Element) => void;
-  onMoveLayer: (id: string, direction: 'up' | 'down') => void;
+  onDuplicateElement: (id: string) => void;
 }
 
 const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
-  selectedElement,
+  element,
   onUpdateElement,
   onDeleteElement,
   onDuplicateElement,
-  onMoveLayer,
 }) => {
   const [elementState, setElementState] = useState<Element | null>(null);
 
@@ -30,12 +28,8 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   ];
 
   useEffect(() => {
-    if (selectedElement) {
-      setElementState(selectedElement);
-    } else {
-      setElementState(null);
-    }
-  }, [selectedElement]);
+    setElementState(element);
+  }, [element]);
 
   if (!elementState) {
     return (
@@ -46,12 +40,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   }
 
   const handlePropertyUpdate = (property: keyof Element, value: string | number | boolean) => {
-    const updatedElement = {
-      ...elementState,
-      [property]: value
-    };
-    setElementState(updatedElement);
-    onUpdateElement(updatedElement);
+    onUpdateElement(elementState.id, { [property]: value });
   };
 
   const handleNumberInput = (
@@ -77,7 +66,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           <h2 className="text-lg font-semibold text-gray-900">Properties</h2>
           <div className="flex space-x-2">
             <button
-              onClick={() => onDuplicateElement(elementState)}
+              onClick={() => onDuplicateElement(elementState.id)}
               className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-md"
               title="Duplicate"
             >
@@ -259,13 +248,13 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             <label className="block text-sm font-medium text-gray-700">Layer</label>
             <div className="flex justify-between mt-2">
               <button
-                onClick={() => onMoveLayer(elementState.id, 'up')}
+                onClick={() => onUpdateElement(elementState.id, { layerDepth: elementState.layerDepth + 1 })}
                 className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50"
               >
                 <ChevronUp className="w-4 h-4" />
               </button>
               <button
-                onClick={() => onMoveLayer(elementState.id, 'down')}
+                onClick={() => onUpdateElement(elementState.id, { layerDepth: elementState.layerDepth - 1 })}
                 className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50"
               >
                 <ChevronDown className="w-4 h-4" />

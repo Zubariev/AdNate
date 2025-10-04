@@ -1,5 +1,5 @@
 export type ShapeType = 'rectangle' | 'circle' | 'triangle' | 'line' | 'star';
-export type ElementType = 'text' | 'image' | 'shape' | 'icon';
+export type ElementType = 'text' | 'image' | 'shape' | 'line';
 
 export interface DesignMetadata {
   id: string;
@@ -34,7 +34,7 @@ export interface DesignData {
 
 export interface Element {
   id: string;
-  type: 'text' | 'shape' | 'image' | 'icon';
+  type: 'text' | 'shape' | 'image' | 'line';
   x: number;
   y: number;
   width: number;
@@ -51,7 +51,6 @@ export interface Element {
   locked?: boolean;
   isBold?: boolean;
   isItalic?: boolean;
-  iconName?: string;
 }
 
 export interface Brief {

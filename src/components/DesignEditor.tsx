@@ -1,46 +1,12 @@
-const handleSaveDesign = async () => {
-  try {
-    const user = await supabase.auth.getUser();
-    if (!user.data?.user) {
-      throw new Error('User not authenticated');
-    }
-
-    const designData = {
-      user_id: user.data.user.id,
-      name: designName || 'Untitled Design',
-      content: JSON.stringify(editorState),
-      updated_at: new Date().toISOString()
-    };
-
-    const { data, error } = await supabase
-      .from('designs')
-      .upsert(designData, { 
-        onConflict: 'id',
-        returning: true 
-      });
-
-    if (error) throw error;
-    
-    console.log('Design saved successfully:', data);
-    // Add success notification here if needed
-  } catch (error) {
-    console.error('Error saving design:', error);
-    // Add error notification here if needed
-  }
-}; 
-
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Card } from './ui/card';
 import Canvas from './Canvas';
 import ElementPanel from './ElementPanel';
 import PropertiesPanel from './PropertiesPanel';
 import LayerPanel from './LayerPanel';
 import Toolbar from './Toolbar';
-import ImageGenerator from './ImageGenerator';
-import CustomSizeDialog from './CustomSizeDialog';
 import html2canvas from 'html2canvas';
 import { saveDesign, updateDesign, autoSaveDesign, cancelAutoSave } from '../lib/designOperations';
 import { useToast } from './ui/use-toast';
@@ -103,28 +69,8 @@ interface ElementSpecification {
   updatedAt: string;
 }
 
-interface DesignElement {
-  id: string;
-  type: 'text' | 'image' | 'shape' | 'icon' | 'line'; // Added 'line'
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  rotation: number;
-  content?: string;
-  fontSize?: number;
-  fontFamily?: string;
-  color?: string;
-  backgroundColor?: string;
-  opacity: number;
-  shapeType?: string;
-  layerDepth: number;
-  locked?: boolean;
-  isBold?: boolean;
-  isItalic?: boolean;
-  iconName?: string;
-  properties?: Record<string, any>; // Added for generic properties
-}
+// Use the Element interface from types.ts instead of defining a new one
+import { Element } from '../types';
 
 interface CanvasSize {
   width: number;
@@ -132,20 +78,19 @@ interface CanvasSize {
 }
 
 interface DesignEditorProps {
-  initialElements?: DesignElement[];
-  onSave?: (elements: DesignElement[]) => void;
+  initialElements?: Element[];
   onExport?: (format: string) => void;
   designId?: string; // Assuming a designId is passed for updates
 }
 
-const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSave, onExport, designId }) => {
-  const [elements, setElements] = useState<DesignElement[]>(initialElements);
-  const [selectedElement, setSelectedElement] = useState<DesignElement | null>(null);
+const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onExport, designId }) => {
+  const [elements, setElements] = useState<Element[]>(initialElements);
+  const [selectedElement, setSelectedElement] = useState<Element | null>(null);
   const [canvasSize, setCanvasSize] = useState<CanvasSize>({ width: 1000, height: 1000 }); // Default to square canvas
   const [showImageGenerator, setShowImageGenerator] = useState<boolean>(false);
   const [showCustomSizeDialog, setShowCustomSizeDialog] = useState<boolean>(false);
   const [designName, setDesignName] = useState<string>('Untitled Design');
-  const [zoom, setZoom] = useState<number>(1);
+  const [zoom] = useState<number>(1);
   const canvasRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -172,8 +117,12 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
       console.log('Specifications Response:', specifications);
 
       // Debug: Log the element IDs to understand the mismatch
-      console.log('Element Image IDs:', elementImages.map(img => img.element_id));
-      console.log('Specification Element IDs:', specifications[0]?.specificationData?.elements?.map(el => el.id));
+      if (Array.isArray(elementImages)) {
+        console.log('Element Image IDs:', elementImages.map((img: ElementImage) => img.element_id));
+      }
+      if (Array.isArray(specifications) && specifications.length > 0) {
+        console.log('Specification Element IDs:', specifications[0]?.specificationData?.elements?.map((el: any) => el.id));
+      }
 
       // Debug: Also try the debug endpoint
       try {
@@ -191,7 +140,7 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
         console.error('Temp check error:', tempError);
       }
 
-      if (!elementImages.length || !specifications.length) {
+      if (!Array.isArray(elementImages) || !Array.isArray(specifications) || !elementImages.length || !specifications.length) {
         toast({
           title: 'No Elements Found',
           description: 'No generated elements found for this brief.',
@@ -207,7 +156,7 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
       console.log('Processing spec elements:', specElements);
 
       // Create design elements from specifications and images
-      const designElements: DesignElement[] = [];
+      const designElements: Element[] = [];
 
       for (const specElement of specElements) {
         console.log(`Processing spec element: ${specElement.id} (${specElement.type})`);
@@ -280,7 +229,7 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
               elementType = 'image'; // Default to image for unknown types
           }
 
-          const designElement: DesignElement = {
+          const designElement: Element = {
             id: specElement.id,
             type: elementType,
             x: specElement.position.x,
@@ -292,12 +241,12 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
             opacity: 1,
             layerDepth: specElement.layerDepth,
             locked: false,
+            fontSize: 20,
+            fontFamily: 'Arial',
+            color: '#000000',
+            backgroundColor: 'transparent',
             // Add text-specific properties if it's a text element
             ...(elementType === 'text' && {
-              fontSize: 20,
-              fontFamily: 'Arial',
-              color: '#000000',
-              backgroundColor: 'transparent',
               isBold: false,
               isItalic: false,
             }),
@@ -393,14 +342,14 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
     }
   }, [elements, toast]);
 
-  const addElement = useCallback((type: DesignElement['type']) => {
+  const addElement = useCallback((type: Element['type']) => {
     // Validate element limits for security
     if (elements.length >= 1000) {
       console.warn('Maximum number of elements reached');
       return;
     }
 
-    const newElement: DesignElement = {
+    const newElement: Element = {
       id: crypto.randomUUID(),
       type,
       x: Math.max(0, Math.min(100, canvasSize.width - 100)),
@@ -409,13 +358,15 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
       height: type === 'text' ? Math.min(50, canvasSize.height) : Math.min(100, canvasSize.height),
       rotation: 0,
       layerDepth: elements.length,
+      fontSize: 16,
+      fontFamily: 'Arial',
+      color: '#000000',
+      backgroundColor: '#ffffff',
+      opacity: 1,
     };
 
     if (type === 'text') {
       newElement.content = sanitizeDesignText('Double click to edit');
-      newElement.fontSize = 16;
-      newElement.fontFamily = 'Arial';
-      newElement.color = '#000000';
     }
 
     // Validate the element before adding
@@ -429,7 +380,7 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
     setSelectedElement(newElement); // Set the newly added element as selected
   }, [elements, canvasSize]);
 
-  const updateElement = useCallback((id: string, updates: Partial<DesignElement>) => {
+  const updateElement = useCallback((id: string, updates: Partial<Element>) => {
     // Sanitize text content if it's being updated
     const sanitizedUpdates = { ...updates };
     if (sanitizedUpdates.content) {
@@ -486,7 +437,7 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
   const duplicateElement = useCallback((id: string) => {
     const elementToDuplicate = elements.find(el => el.id === id);
     if (elementToDuplicate) {
-      const newElement: DesignElement = {
+      const newElement: Element = {
         ...elementToDuplicate,
         id: crypto.randomUUID(), // Use crypto.randomUUID for unique IDs
         x: elementToDuplicate.x + 20,
@@ -522,7 +473,12 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
             // Exporting the design data structure
             const jsonContent = JSON.stringify(elements, null, 2);
             // Sanitize and validate the entire design before exporting
-            const validation = validateDesign({ elements: elements, canvasSize: canvasSize, designName: designName });
+            const validation = validateDesign({ 
+              title: designName,
+              width: canvasSize.width,
+              height: canvasSize.height,
+              elements: elements
+            });
             if (!validation.success) {
               console.error('Invalid design for export:', validation.error);
               toast({ title: "Export failed", description: "Design validation failed." });
@@ -549,7 +505,12 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
 
   const manualSave = useCallback(async () => {
     // Validate the entire design before saving
-    const validation = validateDesign({ elements: elements, canvasSize: canvasSize, designName: designName });
+    const validation = validateDesign({ 
+      title: designName,
+      width: canvasSize.width,
+      height: canvasSize.height,
+      elements: elements
+    });
     if (!validation.success) {
       console.error('Invalid design for save:', validation.error);
       toast({ title: "Save failed", description: "Design validation failed." });
@@ -588,37 +549,9 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
     }
   }, [designName, elements, toast, canvasSize]);
 
-  const handleCanvasSizeChange = useCallback((preset: string) => {
-    const sizes: Record<string, CanvasSize> = {
-      'social-post': { width: 1080, height: 1080 },
-      'story': { width: 1080, height: 1920 },
-      'banner': { width: 1200, height: 628 },
-      'poster': { width: 600, height: 800 },
-      'custom': canvasSize,
-    };
-
-    if (preset === 'custom') {
-      setShowCustomSizeDialog(true);
-    } else if (sizes[preset]) {
-      setCanvasSize(sizes[preset]);
-      // Potentially trigger an update or save if canvas size change is considered a significant modification
-    }
-  }, [canvasSize]);
-
   const handleSave = useCallback(() => {
-    manualSave(); // Use the new manualSave function
+    manualSave();
   }, [manualSave]);
-
-  // Function to add text element (example for Toolbar)
-  const addText = useCallback(() => {
-    addElement('text');
-  }, [addElement]);
-
-  // Function to add shape element (example for Toolbar)
-  const addShape = useCallback((shapeType: string) => {
-    const baseShape = { type: 'shape' as const, shapeType: shapeType, x: 50, y: 50, width: 100, height: 100, backgroundColor: '#3b82f6', color: '#ffffff' };
-    addElement(baseShape as any); // Cast to any to satisfy the type, as addElement expects DesignElement['type']
-  }, [addElement]);
 
   if (isLoadingElements) {
     return (
@@ -676,16 +609,14 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
 
         <div className="flex overflow-hidden flex-col flex-1">
           <Toolbar 
-            onAddText={addText}
-            onAddShape={addShape}
-            onAddImage={() => setShowImageGenerator(true)}
-            canvasSize={canvasSize}
-            onCanvasSizeChange={handleCanvasSizeChange}
-            onCustomSizeClick={() => setShowCustomSizeDialog(true)}
-            onExport={exportDesign}
-            onSave={manualSave}
-            saveStatus={saveStatus}
-            lastSaved={lastSaved}
+            elements={elements}
+            canvasRef={canvasRef}
+            currentDesign={null}
+            onSaveDesign={manualSave}
+            onShowGallery={() => {}}
+            onImportJSON={(elements) => setElements(elements)}
+            onTemplateSelect={(width, height) => setCanvasSize({ width, height })}
+            saving={saveStatus === 'saving'}
           />
           <div className="overflow-auto relative flex-1 p-8 bg-gray-100" ref={canvasRef}>
             <div style={{ width: canvasSize.width, height: canvasSize.height, transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
@@ -717,9 +648,9 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
               <h3 className="mb-4 text-lg font-semibold">Properties</h3>
               <PropertiesPanel
                 element={selectedElement}
-                onUpdateElement={(updates) => updateElement(selectedElement.id, updates)}
-                onDeleteElement={() => deleteElement(selectedElement.id)}
-                onDuplicateElement={() => duplicateElement(selectedElement.id)}
+                onUpdateElement={updateElement}
+                onDeleteElement={deleteElement}
+                onDuplicateElement={duplicateElement}
               />
             </div>
           )}
@@ -727,31 +658,33 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onSav
       </div>
 
       {showImageGenerator && (
-        <ImageGenerator
-          onClose={() => setShowImageGenerator(false)}
-          onImageGenerated={(imageUrl: string) => {
-            addElement({
-              type: 'image',
-              content: imageUrl,
-              width: 200,
-              height: 200,
-              x: canvasSize.width / 2 - 100,
-              y: canvasSize.height / 2 - 100,
-            });
-            setShowImageGenerator(false);
-          }}
-        />
+        <div className="flex fixed inset-0 z-50 justify-center items-center bg-black bg-opacity-50">
+          <div className="p-6 bg-white rounded-lg">
+            <h2 className="mb-4 text-lg font-semibold">Image Generator</h2>
+            <p className="mb-4 text-gray-600">Image generator functionality coming soon...</p>
+            <button
+              onClick={() => setShowImageGenerator(false)}
+              className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
+            >
+              Close
+            </button>
+          </div>
+        </div>
       )}
 
       {showCustomSizeDialog && (
-        <CustomSizeDialog
-          currentSize={canvasSize}
-          onSizeChange={(size: CanvasSize) => {
-            setCanvasSize(size);
-            setShowCustomSizeDialog(false);
-          }}
-          onClose={() => setShowCustomSizeDialog(false)}
-        />
+        <div className="flex fixed inset-0 z-50 justify-center items-center bg-black bg-opacity-50">
+          <div className="p-6 bg-white rounded-lg">
+            <h2 className="mb-4 text-lg font-semibold">Custom Size</h2>
+            <p className="mb-4 text-gray-600">Custom size dialog functionality coming soon...</p>
+            <button
+              onClick={() => setShowCustomSizeDialog(false)}
+              className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
+            >
+              Close
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

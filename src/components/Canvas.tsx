@@ -1,8 +1,6 @@
 import { useState, forwardRef } from 'react';
 import { Element } from '../types.ts';
 import DesignElement from './DesignElement.tsx';
-import { ZoomIn, ZoomOut } from 'lucide-react';
-import CustomSizeDialog from './CustomSizeDialog.tsx';
 
 interface CanvasProps {
   elements: Element[];
@@ -21,17 +19,10 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(({
   onSelectElement,
   onUpdateElement,
   onDeleteElement,
-  onDuplicateElement,
   canvasSize,
   zoom
 }, ref) => {
   const [isDragging, setIsDragging] = useState(false);
-  const [isCustomSizeOpen, setIsCustomSizeOpen] = useState(false);
-
-  const handleZoom = (delta: number) => {
-    // Zoom is now controlled by parent component
-    // This could be removed or handled differently
-  };
 
   const handleUpdateElement = (updatedElement: Element) => {
     onUpdateElement(updatedElement.id, updatedElement);
@@ -39,21 +30,6 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(({
 
   return (
     <div className="relative flex-1 bg-gray-100">
-      <div className="absolute top-4 right-4 z-10 space-x-2">
-        <button
-          onClick={() => handleZoom(0.1)}
-          className="p-2 bg-white rounded-lg shadow hover:bg-gray-50"
-        >
-          <ZoomIn className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => handleZoom(-0.1)}
-          className="p-2 bg-white rounded-lg shadow hover:bg-gray-50"
-        >
-          <ZoomOut className="w-4 h-4" />
-        </button>
-      </div>
-      
       <div 
         ref={ref}
         className="overflow-auto relative"
@@ -83,15 +59,6 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(({
           ))}
         </div>
       </div>
-      <CustomSizeDialog
-        isOpen={isCustomSizeOpen}
-        onClose={() => setIsCustomSizeOpen(false)}
-        onApply={(w, h) => {
-          // Size changes are now handled by parent component
-        }}
-        currentWidth={canvasSize.width}
-        currentHeight={canvasSize.height}
-      />
     </div>
   );
 });

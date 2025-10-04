@@ -6,8 +6,8 @@ interface LayerPanelProps {
   elements: Element[];
   selectedElement: Element | null;
   onSelectElement: (element: Element | null) => void;
-  onUpdateElement: (element: Element) => void;
-  onReorderLayers: (startIndex: number, endIndex: number) => void;
+  onUpdateElement: (id: string, updates: Partial<Element>) => void;
+  onDeleteElement: (id: string) => void;
 }
 
 const LayerPanel: React.FC<LayerPanelProps> = ({
@@ -15,7 +15,7 @@ const LayerPanel: React.FC<LayerPanelProps> = ({
   selectedElement,
   onSelectElement,
   onUpdateElement,
-  onReorderLayers,
+  onDeleteElement,
 }) => {
   const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
 
@@ -54,29 +54,25 @@ const LayerPanel: React.FC<LayerPanelProps> = ({
   };
 
   const toggleVisibility = (element: Element) => {
-    onUpdateElement({
-      ...element,
+    onUpdateElement(element.id, {
       opacity: element.opacity === 0 ? 1 : 0,
     });
   };
 
   const toggleLock = (element: Element) => {
-    onUpdateElement({
-      ...element,
+    onUpdateElement(element.id, {
       locked: !element.locked,
     });
   };
 
   const moveToFront = (element: Element) => {
-    onUpdateElement({
-      ...element,
+    onUpdateElement(element.id, {
       layerDepth: Math.max(...elements.map(e => e.layerDepth)) + 1,
     });
   };
 
   const moveToBack = (element: Element) => {
-    onUpdateElement({
-      ...element,
+    onUpdateElement(element.id, {
       layerDepth: Math.min(...elements.map(e => e.layerDepth)) - 1,
     });
   };
