@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { storage } from '../storage.js';
-import { supabase } from '../db.js';
+import { supabase, db } from '../db.js';
 import { enhanceBrief, generateConceptsFromEnhancedBrief, BriefInput, EnhancedBriefOutput, generateReferenceImage, generateElementSpecifications, processBriefImages } from '../lib/gemini.js';
-import { briefFormSchema, InsertBrief, InsertConcept, RawConcept, InsertSelectedConcept } from "@shared/schema";
+import { briefFormSchema, InsertBrief, InsertConcept, RawConcept, InsertSelectedConcept, concepts } from "@shared/schema";
 import { ZodError } from 'zod';
 import { protect } from '../middleware/auth.js';
 import { EnhancedBriefData } from '../../src/types.js';
+import { eq } from 'drizzle-orm';
 
 const router = Router();
 
@@ -275,6 +276,34 @@ router.get('/:briefId/image-generation-status', protect, async (req, res) => {
   } catch (error) {
     console.error('Error fetching brief status:', error);
     res.status(500).json({ message: (error as Error).message || 'Failed to fetch brief status' });
+  }
+});
+
+// New endpoint to clear concepts from a brief (used when image generation is completed)
+router.delete('/:briefId/concepts', protect, async (req, res) => {
+  try {
+    const { briefId } = req.params;
+    
+    // Get all concepts for this brief first to verify they exist
+    const existingConcepts = await storage.getConceptsByBriefId(briefId);
+    
+    if (existingConcepts.length === 0) {
+      return res.status(200).json({ message: 'No concepts to clear' });
+    }
+    
+    // Use Drizzle to delete concepts (this will work with the correct schema)
+    if (!db) {
+      return res.status(503).json({ message: 'Database service is not available' });
+    }
+    
+    // Delete all concepts for this brief using Drizzle
+    await db.delete(concepts).where(eq(concepts.briefId, briefId));
+    
+    console.log(`Cleared ${existingConcepts.length} concepts for brief ${briefId}`);
+    res.status(200).json({ message: 'Concepts cleared successfully' });
+  } catch (error) {
+    console.error('Error clearing concepts:', error);
+    res.status(500).json({ message: (error as Error).message || 'Failed to clear concepts' });
   }
 });
 

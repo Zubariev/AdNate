@@ -45,7 +45,12 @@ import { KeywordSuggestions } from "../../components/ui/keyword-suggestions.js";
 import { briefSuggestions } from "../../lib/brief-suggestions.js";
 import { industryTemplates } from "../../lib/industry-templates.js";
 import { briefFormSchema, Brief, Concept, RawConcept } from "../../shared/schema.js";
-import { get } from "http";
+
+// Extended Brief type to include image generation status
+interface ExtendedBrief extends Brief {
+  imageGenerationStatus?: string;
+  enhancedBrief?: Record<string, unknown>;
+}
 
 
 export default function Home() {
@@ -58,13 +63,14 @@ export default function Home() {
   const [selectedConceptIndex, setSelectedConceptIndex] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [isSaving, setIsSaving] = useState(false);
+  const [conceptsCleared, setConceptsCleared] = useState(false);
 
   const { data: briefs = [], isLoading: isLoadingBriefs } = useQuery<Brief[]>({
     queryKey: ['briefs'],
     queryFn: async () => apiClient.get<Brief[]>("/briefs").then(res => res.data as Brief[] || []),
   });
 
-  const { data: selectedBrief, isLoading: isLoadingSelectedBrief } = useQuery<Brief>({
+  const { data: selectedBrief, isLoading: isLoadingSelectedBrief } = useQuery<ExtendedBrief>({
     queryKey: ['briefs', selectedBriefId],
     queryFn: async () => apiClient.get<Brief>(`/briefs/${selectedBriefId}`).then(res => res.data as Brief),
     enabled: !!selectedBriefId,
@@ -73,7 +79,7 @@ export default function Home() {
   const { data: concepts, isLoading: isLoadingConcepts } = useQuery<Concept[]>({
       queryKey: ['concepts', selectedBriefId],
       queryFn: async () => apiClient.get<{ savedConcepts: Concept[] }>(`/briefs/${selectedBriefId}/concepts`).then(res => (res.data as { savedConcepts: Concept[] })?.savedConcepts || []),
-      enabled: !!selectedBriefId && !!(selectedBrief as Brief)?.enhancedBrief,
+      enabled: !!selectedBriefId && !!selectedBrief?.enhancedBrief,
   });
 
   useEffect(() => {
@@ -81,12 +87,44 @@ export default function Home() {
       setSelectedBriefId(briefs[0].id);
     }
   }, [briefs, selectedBriefId]);
+
+  // Reset concepts cleared flag when brief changes
+  useEffect(() => {
+    setConceptsCleared(false);
+  }, [selectedBriefId]);
   
   useEffect(() => {
-    if (concepts) {
+    if (concepts && !conceptsCleared) {
       setGeneratedConcepts(concepts);
     }
-  }, [concepts]);
+  }, [concepts, conceptsCleared]);
+
+  // Clear concepts when image generation is completed
+  useEffect(() => {
+    if (selectedBrief?.imageGenerationStatus === 'completed' && !conceptsCleared) {
+      console.log('Image generation completed, clearing concepts...');
+      
+      // Set flag to prevent repopulation
+      setConceptsCleared(true);
+      
+      // Clear the concepts to show a clean page for new briefs
+      setGeneratedConcepts([]);
+      setSelectedConceptIndex(null);
+      
+      // Also clear concepts from the database
+      if (selectedBriefId) {
+        apiClient.delete(`/briefs/${selectedBriefId}/concepts`)
+          .then(() => {
+            console.log('Concepts cleared from database');
+            // Invalidate the concepts query to refresh the data
+            queryClient.invalidateQueries({ queryKey: ['concepts', selectedBriefId] });
+          })
+          .catch((error) => {
+            console.error('Error clearing concepts from database:', error);
+          });
+      }
+    }
+  }, [selectedBrief?.imageGenerationStatus, selectedBriefId, queryClient, conceptsCleared]);
 
   const form = useForm<z.infer<typeof briefFormSchema>>({
     resolver: zodResolver(briefFormSchema),
@@ -139,6 +177,7 @@ export default function Home() {
       queryClient.invalidateQueries({ queryKey: ['briefs', selectedBriefId] });
       queryClient.invalidateQueries({ queryKey: ['concepts', selectedBriefId] });
       setGeneratedConcepts(data);
+      setConceptsCleared(false); // Reset cleared flag when new concepts are generated
       toast({
         title: "Success",
         description: "Creative concepts generated successfully!"
