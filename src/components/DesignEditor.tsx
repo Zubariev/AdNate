@@ -124,26 +124,65 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onExp
         console.log('Specification Element IDs:', specifications[0]?.specificationData?.elements?.map((el: any) => el.id));
       }
 
-      // Debug: Also try the debug endpoint
-      try {
-        const debugResponse = await apiClient.get(`/briefs/${briefId}/debug-element-images`);
-        console.log('Debug endpoint response:', debugResponse.data);
-      } catch (debugError) {
-        console.error('Debug endpoint error:', debugError);
-      }
-
-      // Debug: Try temp check endpoint (bypasses RLS)
-      try {
-        const tempResponse = await apiClient.get(`/briefs/${briefId}/temp-check-data`);
-        console.log('Temp check response:', tempResponse.data);
-      } catch (tempError) {
-        console.error('Temp check error:', tempError);
-      }
+      // If no images exist but specifications do, trigger image generation
+      // if ((!Array.isArray(elementImages) || !elementImages.length) && Array.isArray(specifications) && specifications.length > 0) {
+      //   console.log('Images missing but specifications exist. Triggering image generation...');
+        
+      //   try {
+      //     await apiClient.post(`/briefs/${briefId}/trigger-image-generation`, {});
+          
+      //     toast({
+      //       title: 'Generating Images',
+      //       description: 'Element images are being generated. This may take a few minutes. Please refresh the page in a moment.',
+      //     });
+          
+      //     // Set a longer loading state to give time for generation
+      //     setIsLoadingElements(true);
+          
+      //     // Poll for images every 5 seconds for up to 2 minutes
+      //     let pollAttempts = 0;
+      //     const maxPolls = 24; // 24 * 5s = 2 minutes
+          
+      //     const pollInterval = setInterval(async () => {
+      //       pollAttempts++;
+            
+      //       try {
+      //         const checkResponse = await apiClient.get<ElementImage[]>(`/briefs/${briefId}/element-images`);
+      //         const checkImages = checkResponse.data;
+              
+      //         if (Array.isArray(checkImages) && checkImages.length > 0) {
+      //           clearInterval(pollInterval);
+      //           console.log('Images generated successfully, reloading...');
+      //           loadElementsFromBrief(briefId); // Reload the elements
+      //         } else if (pollAttempts >= maxPolls) {
+      //           clearInterval(pollInterval);
+      //           setIsLoadingElements(false);
+      //           toast({
+      //             title: 'Generation Taking Longer',
+      //             description: 'Image generation is still in progress. Please check back in a few minutes.',
+      //           });
+      //         }
+      //       } catch (pollError) {
+      //         console.error('Error polling for images:', pollError);
+      //       }
+      //     }, 5000);
+          
+      //     return; // Exit early while generation is in progress
+      //   } catch (triggerError) {
+      //     console.error('Error triggering image generation:', triggerError);
+      //     toast({
+      //       title: 'Generation Failed',
+      //       description: 'Failed to trigger image generation. Please try again.',
+      //       variant: 'destructive',
+      //     });
+      //     return;
+      //   }
+      // }
 
       if (!Array.isArray(elementImages) || !Array.isArray(specifications) || !elementImages.length || !specifications.length) {
         toast({
           title: 'No Elements Found',
-          description: 'No generated elements found for this brief.',
+          description: 'No generated elements or specifications found for this brief.',
           variant: 'destructive',
         });
         return;

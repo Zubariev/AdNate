@@ -1,12 +1,11 @@
 import { Router } from 'express';
 import { storage } from '../storage.js';
-import { supabase, db } from '../db.js';
-import { enhanceBrief, generateConceptsFromEnhancedBrief, BriefInput, EnhancedBriefOutput, generateReferenceImage, generateElementSpecifications, processBriefImages } from '../lib/gemini.js';
-import { briefFormSchema, InsertBrief, InsertConcept, RawConcept, InsertSelectedConcept, concepts } from "@shared/schema";
+import { supabase } from '../db.js';
+import { enhanceBrief, generateConceptsFromEnhancedBrief, BriefInput, EnhancedBriefOutput, generateReferenceImage, generateElementSpecifications, processBriefImages, getElementSpecifications } from '../lib/gemini.js';
+import { briefFormSchema, InsertBrief, InsertConcept, RawConcept, InsertSelectedConcept } from "@shared/schema";
 import { ZodError } from 'zod';
 import { protect } from '../middleware/auth.js';
 import { EnhancedBriefData } from '../../src/types.js';
-import { eq } from 'drizzle-orm';
 
 const router = Router();
 
@@ -279,31 +278,23 @@ router.get('/:briefId/image-generation-status', protect, async (req, res) => {
   }
 });
 
-// New endpoint to clear concepts from a brief (used when image generation is completed)
+// Endpoint to clear concepts from a brief - DISABLED to prevent cascade deletion of element_images
+// Note: This endpoint was causing element_images to be deleted due to CASCADE constraint
+// Instead of deleting concepts, they should be hidden in the UI if needed
 router.delete('/:briefId/concepts', protect, async (req, res) => {
   try {
     const { briefId } = req.params;
     
-    // Get all concepts for this brief first to verify they exist
-    const existingConcepts = await storage.getConceptsByBriefId(briefId);
-    
-    if (existingConcepts.length === 0) {
-      return res.status(200).json({ message: 'No concepts to clear' });
-    }
-    
-    // Use Drizzle to delete concepts (this will work with the correct schema)
-    if (!db) {
-      return res.status(503).json({ message: 'Database service is not available' });
-    }
-    
-    // Delete all concepts for this brief using Drizzle
-    await db.delete(concepts).where(eq(concepts.briefId, briefId));
-    
-    console.log(`Cleared ${existingConcepts.length} concepts for brief ${briefId}`);
-    res.status(200).json({ message: 'Concepts cleared successfully' });
+    // Return success without actually deleting
+    // Concepts should remain in the database to maintain data integrity
+    console.log(`Concept deletion skipped for brief ${briefId} - concepts retained for data integrity`);
+    res.status(200).json({ 
+      message: 'Concepts retained for data integrity',
+      note: 'Concepts are not deleted to preserve element images'
+    });
   } catch (error) {
-    console.error('Error clearing concepts:', error);
-    res.status(500).json({ message: (error as Error).message || 'Failed to clear concepts' });
+    console.error('Error in concepts endpoint:', error);
+    res.status(500).json({ message: (error as Error).message || 'Failed to process request' });
   }
 });
 
@@ -541,6 +532,58 @@ router.get('/:briefId/element-specifications', protect, async (req, res) => {
     res.status(500).json({ message: (error as Error).message || 'Failed to fetch element specifications' });
   }
 });
+
+// Debug endpoint to check what getElementSpecifications returns
+router.get('/:briefId/debug-element-specifications', protect, async (req, res) => {
+  try {
+    const { briefId } = req.params;
+    
+    console.log(`Debug: Checking element specifications for briefId: ${briefId}`);
+    
+    // Use the same function that processBriefImages uses
+    const specRecords = await getElementSpecifications(briefId);
+    
+    console.log(`getElementSpecifications returned:`, specRecords);
+    
+    res.status(200).json({
+      briefId,
+      specRecords,
+      count: specRecords.length,
+      hasSpecs: specRecords.length > 0
+    });
+  } catch (error) {
+    console.error('Debug element specifications error:', error);
+    res.status(500).json({ message: (error as Error).message || 'Debug failed' });
+  }
+});
+
+// Manual trigger for image generation (for debugging)
+// router.post('/:briefId/trigger-image-generation', protect, async (req, res) => {
+//   try {
+//     const { briefId } = req.params;
+//     const userId = req.user?.id;
+    
+//     if (!userId) {
+//       return res.status(401).json({ message: 'User not authenticated' });
+//     }
+    
+//     console.log(`Manual trigger: Starting image generation for brief ${briefId}, user ${userId}`);
+    
+//     // Trigger the image generation process
+//     processBriefImages(briefId, userId).catch(err => {
+//       console.error("Manual image generation failed:", err);
+//     });
+    
+//     res.status(200).json({ 
+//       message: 'Image generation triggered successfully',
+//       briefId,
+//       userId 
+//     });
+//   } catch (error) {
+//     console.error('Error triggering image generation:', error);
+//     res.status(500).json({ message: (error as Error).message || 'Failed to trigger image generation' });
+//   }
+// });
 
 // Debug endpoint to check if element images exist in database
 router.get('/:briefId/debug-element-images', protect, async (req, res) => {

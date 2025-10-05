@@ -99,32 +99,21 @@ export default function Home() {
     }
   }, [concepts, conceptsCleared]);
 
-  // Clear concepts when image generation is completed
+  // Clear concepts from UI when image generation is completed
+  // Note: We no longer delete concepts from the database to preserve data integrity
   useEffect(() => {
     if (selectedBrief?.imageGenerationStatus === 'completed' && !conceptsCleared) {
-      console.log('Image generation completed, clearing concepts...');
+      console.log('Image generation completed, clearing concepts from UI...');
       
       // Set flag to prevent repopulation
       setConceptsCleared(true);
       
-      // Clear the concepts to show a clean page for new briefs
+      // Clear the concepts from UI to show a clean page for new briefs
+      // Concepts remain in the database to maintain data integrity with element_images
       setGeneratedConcepts([]);
       setSelectedConceptIndex(null);
-      
-      // Also clear concepts from the database
-      if (selectedBriefId) {
-        apiClient.delete(`/briefs/${selectedBriefId}/concepts`)
-          .then(() => {
-            console.log('Concepts cleared from database');
-            // Invalidate the concepts query to refresh the data
-            queryClient.invalidateQueries({ queryKey: ['concepts', selectedBriefId] });
-          })
-          .catch((error) => {
-            console.error('Error clearing concepts from database:', error);
-          });
-      }
     }
-  }, [selectedBrief?.imageGenerationStatus, selectedBriefId, queryClient, conceptsCleared]);
+  }, [selectedBrief?.imageGenerationStatus, selectedBriefId, conceptsCleared]);
 
   const form = useForm<z.infer<typeof briefFormSchema>>({
     resolver: zodResolver(briefFormSchema),
