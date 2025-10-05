@@ -70,8 +70,8 @@ export default function LoadingScreen() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
-  const [isGenerating, setIsGenerating] = useState(false);
   const pollingIntervalRef = useRef<number | null>(null);
+  const hasStartedGenerationRef = useRef(false); // Track if generation has been started
   const [loadingType, setLoadingType] = useState<"concepts" | "images">("concepts"); // Default to concepts loading
 
   useEffect(() => {
@@ -92,6 +92,11 @@ export default function LoadingScreen() {
   }, []);
 
   useEffect(() => {
+    // Prevent multiple calls
+    if (hasStartedGenerationRef.current) {
+      return;
+    }
+
     // Get briefId from URL or localStorage
     const briefId = searchParams.get('briefId') || localStorage.getItem('selectedBriefId');
     
@@ -99,14 +104,15 @@ export default function LoadingScreen() {
     const type = searchParams.get('type');
     const conceptId = searchParams.get('conceptId');
     
-    // If conceptId is present in URL, we're doing image generation
-    // If type is explicitly set, use that
-    // Otherwise default to concepts
+    // Determine loading type
+    let determinedType: "concepts" | "images" = "concepts";
     if (type === 'concepts' || type === 'images') {
-      setLoadingType(type);
+      determinedType = type;
     } else if (conceptId) {
-      setLoadingType('images'); // If conceptId is present, we're generating images
+      determinedType = 'images'; // If conceptId is present, we're generating images
     }
+    
+    setLoadingType(determinedType);
     
     if (!briefId) {
       toast({
@@ -118,15 +124,17 @@ export default function LoadingScreen() {
       return;
     }
 
-    if (!isGenerating) {
-      if (loadingType === "concepts") {
-        generateConceptsAndPoll(briefId);
-      } else {
-        generateImagesAndPoll(briefId);
-      }
+    // Mark as started before calling generation function
+    hasStartedGenerationRef.current = true;
+
+    // Start the appropriate generation process
+    if (determinedType === "concepts") {
+      generateConceptsAndPoll(briefId);
+    } else {
+      generateImagesAndPoll(briefId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, navigate, toast, loadingType]);
+  }, [searchParams, navigate, toast]);
 
   const pollImageStatus = (briefId: string) => {
     pollingIntervalRef.current = window.setInterval(async () => {
@@ -192,8 +200,8 @@ export default function LoadingScreen() {
             description: 'All concepts have been generated successfully.',
           });
           
-          // Redirect to brief page with the anchor to scroll to concepts section
-          setTimeout(() => navigate(`/brief?briefId=${briefId}#concepts`), 1000);
+          // Redirect to brief page - the page will auto-select the brief and show concepts
+          setTimeout(() => navigate('/brief'), 1000);
         }
         // If we don't have 3 concepts yet, continue polling
       } catch (error) {
@@ -210,38 +218,48 @@ export default function LoadingScreen() {
   };
 
   const generateConceptsAndPoll = async (briefId: string) => {
-    setIsGenerating(true);
     try {
-      // Start the concept generation process
-      const enhanceResponse = await apiClient.post(`/briefs/${briefId}/enhance`, {});
-      if (!enhanceResponse.data || enhanceResponse.error || enhanceResponse.status >= 400) {
-        throw new Error(enhanceResponse.error || 'Failed to enhance brief for concept generation');
-      }
-      
-      // Display a toast notification
+      // Display initial toast notification
       toast({
         title: 'Processing...',
         description: 'Your brief is being analyzed. Generating creative concepts...',
       });
       
-      // Start polling for concepts
-      pollConceptsStatus(briefId);
+      // The enhance endpoint now automatically generates concepts
+      const enhanceResponse = await apiClient.post(`/briefs/${briefId}/enhance`, {});
+      if (!enhanceResponse.data || enhanceResponse.error || enhanceResponse.status >= 400) {
+        throw new Error(enhanceResponse.error || 'Failed to enhance brief and generate concepts');
+      }
+      
+      // Concepts are generated synchronously by the server
+      // Check if concepts were generated successfully
+      const responseData = enhanceResponse.data as { conceptsGenerated?: boolean };
+      
+      if (responseData.conceptsGenerated) {
+        toast({
+          title: 'Success!',
+          description: 'All concepts have been generated successfully.',
+        });
+        // Redirect to brief page after a short delay
+        setTimeout(() => navigate('/brief'), 1500);
+      } else {
+        // If concepts weren't generated, start polling as fallback
+        console.log('Concepts not generated in initial call, starting polling...');
+        pollConceptsStatus(briefId);
+      }
       
     } catch (error) {
       console.error('Error during concept generation:', error);
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to start the concept generation process',
+        description: error instanceof Error ? error.message : 'Failed to generate concepts',
         variant: 'destructive',
       });
       setTimeout(() => navigate('/brief'), 3000);
-      setIsGenerating(false);
     }
-    // No setIsGenerating(false) here because we are now in the polling phase
   };
 
   const generateImagesAndPoll = async (briefId: string) => {
-    setIsGenerating(true);
     try {
       // Step 1: Check if concept is selected
       const selectedConceptResponse = await apiClient.get<{conceptId: string; briefId: string}>(`/briefs/${briefId}/selected-concept`);
@@ -289,9 +307,7 @@ export default function LoadingScreen() {
         variant: 'destructive',
       });
       setTimeout(() => navigate('/brief'), 3000);
-      setIsGenerating(false);
     }
-    // No setIsGenerating(false) here because we are now in the polling phase
   };
 
   return (

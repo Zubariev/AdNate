@@ -141,36 +141,8 @@ export default function Home() {
     onSuccess: (data: Brief) => {
       queryClient.invalidateQueries({ queryKey: ['briefs'] });
       setSelectedBriefId(data.id);
-      enhanceAndGenerateConceptsMutation.mutate(data.id);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-  });
-  
-  const enhanceAndGenerateConceptsMutation = useMutation({
-    mutationFn: async (briefId: string): Promise<Concept[]> => {
-      const enhanceResponse = await apiClient.post<Brief>(`/briefs/${briefId}/enhance`, {});
-      if (enhanceResponse.error) throw new Error(enhanceResponse.error);
-      
-      const conceptsResponse = await apiClient.post<Concept[]>(`/briefs/${briefId}/generate-concepts`, {});
-      if (conceptsResponse.error) throw new Error(conceptsResponse.error);
-      
-      return (conceptsResponse.data as Concept[]) || [];
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['briefs', selectedBriefId] });
-      queryClient.invalidateQueries({ queryKey: ['concepts', selectedBriefId] });
-      setGeneratedConcepts(data);
-      setConceptsCleared(false); // Reset cleared flag when new concepts are generated
-      toast({
-        title: "Success",
-        description: "Creative concepts generated successfully!"
-      });
+      // Navigate to loading page for enhancement and concept generation
+      navigate(`/brief/loading?briefId=${data.id}&type=concepts`);
     },
     onError: (error: Error) => {
       toast({
@@ -588,7 +560,7 @@ export default function Home() {
           <div className="flex justify-center">
             <Button 
               type="button" 
-              disabled={createBriefMutation.isPending || enhanceAndGenerateConceptsMutation.isPending}
+              disabled={createBriefMutation.isPending}
               className="px-8 py-3 text-lg bg-gradient-to-r from-purple-400 to-pink-400 hover:opacity-90"
               onClick={(e) => {
                 e.preventDefault();
@@ -597,10 +569,10 @@ export default function Home() {
                 })();
               }}
             >
-              {(createBriefMutation.isPending || enhanceAndGenerateConceptsMutation.isPending) ? (
+              {createBriefMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 w-5 h-5 animate-spin" />
-                  {createBriefMutation.isPending ? 'Creating Brief...' : 'Generating Concepts...'}
+                  Creating Brief...
                 </>
               ) : (
                 'Create Concepts'
