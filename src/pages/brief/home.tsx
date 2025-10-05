@@ -235,7 +235,12 @@ export default function Home() {
 
     setIsSaving(true);
     try {
-      await apiClient.post(`/briefs/${selectedBriefId}/select-concept`, { conceptId: concept.id });
+      const response = await apiClient.post(`/briefs/${selectedBriefId}/select-concept`, { conceptId: concept.id });
+      
+      // Check for errors in the response
+      if (response.error || response.status >= 400) {
+        throw new Error(response.error || 'Failed to save selected concept');
+      }
       
       // Store briefId and conceptId for the loading page
       localStorage.setItem('selectedBriefId', selectedBriefId);
@@ -247,7 +252,8 @@ export default function Home() {
       });
       
       // Navigate with query params for better reliability
-      navigate(`/brief/loading?briefId=${selectedBriefId}&conceptId=${concept.id}`);
+      // Add type=images to indicate we're generating images, not concepts
+      navigate(`/brief/loading?briefId=${selectedBriefId}&conceptId=${concept.id}&type=images`);
     } catch (error) {
       console.error('Error saving selected concept:', error);
       toast({

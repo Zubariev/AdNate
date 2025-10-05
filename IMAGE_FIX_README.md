@@ -13,17 +13,37 @@ Element images were not displaying in the editor due to a database CASCADE const
 
 ## Changes Made
 
-### 1. Database Migration (`FIX_IMAGES_MIGRATION.sql`)
+### 1. Database Migrations (MUST RUN ALL)
 
-**Action Required:** You must run this SQL script on your Supabase instance.
+**Critical:** You must run ALL SQL scripts on your Supabase instance in this order:
 
-**Steps:**
-1. Open your Supabase Dashboard
-2. Navigate to SQL Editor
-3. Copy the contents of `FIX_IMAGES_MIGRATION.sql`
-4. Paste and run the script
+#### A. `FIX_DESIGNS_TRIGGER.sql`
+Fixes the trigger that creates a design record when a brief is created.
 
 **What it does:**
+- Changes the trigger to insert an empty JSONB object `{}` instead of NULL
+- Prevents "null value in column data violates not-null constraint" errors
+
+#### B. `FIX_SELECTED_CONCEPTS_TABLE.sql`
+Adds missing columns to the `selected_concepts` table.
+
+**What it does:**
+- Adds `user_id`, `created_at`, and `updated_at` columns
+- Creates foreign key constraint for user_id
+- Enables RLS and creates appropriate policies
+- Prevents 500 errors when selecting concepts
+
+#### C. `FIX_IMAGES_MIGRATION.sql`
+Fixes the CASCADE constraint on element_images.
+
+**Steps for ALL migrations:**
+1. Open your Supabase Dashboard
+2. Navigate to SQL Editor
+3. Copy the contents of each file in order (A, B, C)
+4. Paste and run each script
+5. Verify no errors occurred
+
+**FIX_IMAGES_MIGRATION.sql does:**
 - Removes the CASCADE constraint from `element_images.concept_id`
 - Changes the constraint to `ON DELETE SET NULL`
 - Makes `concept_id` nullable
@@ -44,9 +64,16 @@ Element images were not displaying in the editor due to a database CASCADE const
 - Removed database deletion logic from the concept clearing effect
 - Concepts are now only cleared from UI state, not from the database
 - Added clarifying comments about data integrity
+- **Fixed navigation URL to include `type=images` parameter when selecting a concept**
+- **Added proper error checking for concept selection API response**
+
+#### `src/pages/brief/LoadingPage.tsx`
+- **Added logic to detect `conceptId` in URL to determine if we're generating images vs concepts**
+- **Improved error handling for all API calls to check response status and error fields**
+- **Prevents concept regeneration loop when image generation should be happening**
 
 #### `src/components/DesignEditor.tsx`
-- Added automatic image regeneration when specifications exist but images don't
+- Added automatic image regeneration when specifications exist but images don't (currently commented out)
 - Implemented polling mechanism to wait for image generation completion
 - Shows user-friendly toast notifications about generation status
 - Polls every 5 seconds for up to 2 minutes
@@ -100,10 +127,12 @@ After applying the fix:
 ## Files Changed
 
 - `server/api/briefs.ts` - Disabled concept deletion
-- `src/pages/brief/home.tsx` - Updated concept clearing logic
-- `src/components/DesignEditor.tsx` - Added automatic image regeneration
-- `supabase/migrations/20250310119000_fix_element_images_cascade.sql` - Database migration
-- `FIX_IMAGES_MIGRATION.sql` - Manual migration script for Supabase dashboard
+- `src/pages/brief/home.tsx` - Updated concept clearing logic, fixed navigation, improved error handling
+- `src/pages/brief/LoadingPage.tsx` - Fixed concept regeneration loop, improved error handling
+- `src/components/DesignEditor.tsx` - Added automatic image regeneration (commented out)
+- `supabase/migrations/FIX_DESIGNS_TRIGGER.sql` - Fixes design creation trigger
+- `supabase/migrations/FIX_SELECTED_CONCEPTS_TABLE.sql` - Adds missing columns to selected_concepts
+- `supabase/migrations/FIX_IMAGES_MIGRATION.sql` - Fixes CASCADE constraint on element_images
 
 ## Prevention
 

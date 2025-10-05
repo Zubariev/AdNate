@@ -97,8 +97,15 @@ export default function LoadingScreen() {
     
     // Check what type of loading we're doing (concepts or images)
     const type = searchParams.get('type');
+    const conceptId = searchParams.get('conceptId');
+    
+    // If conceptId is present in URL, we're doing image generation
+    // If type is explicitly set, use that
+    // Otherwise default to concepts
     if (type === 'concepts' || type === 'images') {
       setLoadingType(type);
+    } else if (conceptId) {
+      setLoadingType('images'); // If conceptId is present, we're generating images
     }
     
     if (!briefId) {
@@ -207,8 +214,8 @@ export default function LoadingScreen() {
     try {
       // Start the concept generation process
       const enhanceResponse = await apiClient.post(`/briefs/${briefId}/enhance`, {});
-      if (!enhanceResponse.data) {
-        throw new Error('Failed to enhance brief for concept generation');
+      if (!enhanceResponse.data || enhanceResponse.error || enhanceResponse.status >= 400) {
+        throw new Error(enhanceResponse.error || 'Failed to enhance brief for concept generation');
       }
       
       // Display a toast notification
@@ -238,14 +245,14 @@ export default function LoadingScreen() {
     try {
       // Step 1: Check if concept is selected
       const selectedConceptResponse = await apiClient.get<{conceptId: string; briefId: string}>(`/briefs/${briefId}/selected-concept`);
-      if (!selectedConceptResponse.data || typeof selectedConceptResponse.data === 'string') {
-        throw new Error('No concept selected for this brief');
+      if (!selectedConceptResponse.data || selectedConceptResponse.error || selectedConceptResponse.status >= 400 || typeof selectedConceptResponse.data === 'string') {
+        throw new Error(selectedConceptResponse.error || 'No concept selected for this brief');
       }
       
       // Step 2: Generate reference image
       const imageResponse = await apiClient.post<ReferenceImage>(`/briefs/${briefId}/generate-reference-image`, {});
-      if (!imageResponse.data) {
-        throw new Error('Failed to generate and save reference image record');
+      if (!imageResponse.data || imageResponse.error || imageResponse.status >= 400) {
+        throw new Error(imageResponse.error || 'Failed to generate and save reference image record');
       }
       
       // Parse response data properly
@@ -263,8 +270,8 @@ export default function LoadingScreen() {
         referenceImageId: newReferenceImage.id
       });
 
-      if (!specResponse.data) {
-        throw new Error('Failed to generate element specifications');
+      if (!specResponse.data || specResponse.error || specResponse.status >= 400) {
+        throw new Error(specResponse.error || 'Failed to generate element specifications');
       }
       
       // Step 4: Start polling for completion status

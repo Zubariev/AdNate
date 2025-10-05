@@ -558,32 +558,32 @@ router.get('/:briefId/debug-element-specifications', protect, async (req, res) =
 });
 
 // Manual trigger for image generation (for debugging)
-// router.post('/:briefId/trigger-image-generation', protect, async (req, res) => {
-//   try {
-//     const { briefId } = req.params;
-//     const userId = req.user?.id;
+router.post('/:briefId/trigger-image-generation', protect, async (req, res) => {
+  try {
+    const { briefId } = req.params;
+    const userId = req.user?.id;
     
-//     if (!userId) {
-//       return res.status(401).json({ message: 'User not authenticated' });
-//     }
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
     
-//     console.log(`Manual trigger: Starting image generation for brief ${briefId}, user ${userId}`);
+    console.log(`Manual trigger: Starting image generation for brief ${briefId}, user ${userId}`);
     
-//     // Trigger the image generation process
-//     processBriefImages(briefId, userId).catch(err => {
-//       console.error("Manual image generation failed:", err);
-//     });
+    // Trigger the image generation process
+    processBriefImages(briefId, userId).catch(err => {
+      console.error("Manual image generation failed:", err);
+    });
     
-//     res.status(200).json({ 
-//       message: 'Image generation triggered successfully',
-//       briefId,
-//       userId 
-//     });
-//   } catch (error) {
-//     console.error('Error triggering image generation:', error);
-//     res.status(500).json({ message: (error as Error).message || 'Failed to trigger image generation' });
-//   }
-// });
+    res.status(200).json({ 
+      message: 'Image generation triggered successfully',
+      briefId,
+      userId 
+    });
+  } catch (error) {
+    console.error('Error triggering image generation:', error);
+    res.status(500).json({ message: (error as Error).message || 'Failed to trigger image generation' });
+  }
+});
 
 // Debug endpoint to check if element images exist in database
 router.get('/:briefId/debug-element-images', protect, async (req, res) => {
