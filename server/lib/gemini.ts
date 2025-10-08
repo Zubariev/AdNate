@@ -2,8 +2,6 @@ import { RawConcept, Concept, ElementSpecification, ReferenceImage, ElementSpeci
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { EnhancedBriefData } from '../../src/types';
 import { GoogleGenAI } from "@google/genai";
-
-// axios no longer needed since we're not using the remove.bg API
 declare module "@google/genai" {
   interface GenerateContentParameters {
     generationConfig?: {
@@ -18,7 +16,7 @@ declare module "@google/genai" {
 
 import { storage } from '../storage';
 import { supabase } from "../db";
-import { removeBackground as removeBgApi } from "@imgly/background-removal-node";
+import Replicate from "replicate";
 
 // Helper function to generate UUID for element IDs
 function generateUUID(): string {
@@ -79,18 +77,34 @@ async function removeBackground(imageBase64: string): Promise<string | null> {
     console.warn("Error checking transparency, proceeding with background removal:", err);
   }
 
-  // 1. Try with @imgly/background-removal-node for faster processing
+  // 1. Try with cjwbw/rembg for faster processing
   try {
-    const imageBuffer = Buffer.from(imageBase64.split(',')[1], 'base64');
-    const blob = new Blob([imageBuffer]);
-    const result = await removeBgApi(blob);
-    const buffer = await result.arrayBuffer();
-    const base64 = Buffer.from(buffer).toString('base64');
-    const mimeType = result.type;
-    console.log("✅ Background removed successfully with @imgly/background-removal-node.");
-    return `data:${mimeType};base64,${base64}`;
+    const replicate = new Replicate({
+      auth: process.env.REPLICATE_API_TOKEN,
+    });
+    
+    // Convert base64 to data URI format (Replicate accepts data URIs)
+    const dataUri = imageBase64.startsWith('data:') ? imageBase64 : `data:image/png;base64,${imageBase64.split(',')[1] || imageBase64}`;
+    
+    const output = await replicate.run(
+      "cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003",
+      {
+        input: {
+          image: dataUri
+        }
+      }
+    ) as unknown as string;
+    
+    // Output is a URI string - fetch the image from the URL
+    const response = await fetch(output);
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64 = buffer.toString('base64');
+    
+    console.log("✅ Background removed successfully with Replicate (cjwbw/rembg).");
+    return `data:image/png;base64,${base64}`;
   } catch (error) {
-    console.warn("⚠️ @imgly/background-removal-node failed. Falling back to Gemini for background removal.", error);
+    console.warn("⚠️ Replicate background removal failed. Falling back to Gemini for background removal.", error);
 
     // 2. Fallback to Gemini API (keeping everything in Google's ecosystem)
     try {
