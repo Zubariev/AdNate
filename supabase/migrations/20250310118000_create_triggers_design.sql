@@ -71,17 +71,46 @@ BEGIN
     RAISE EXCEPTION 'spec.elements must be a non-empty array';
   END IF;
 
-  -- Attempt to read background width/height if present (optional)
-  IF spec ? 'background' THEN
-    IF (spec->'background') ? 'width' THEN
-      width_num := (spec->'background'->>'width')::numeric;
-    ELSIF (spec->'background') ? 'specification' THEN
-      -- no numeric size, keep defaults
-      NULL;
+  -- Calculate canvas dimensions from elements
+  -- Find max width and height from element positions and dimensions
+  FOR el_rec IN
+    SELECT value AS el
+    FROM jsonb_array_elements(elems) AS arr(value)
+  LOOP
+    el := el_rec.el;
+    IF (el->'position'->>'x')::numeric + (el->'dimensions'->>'width')::numeric > width_num THEN
+      width_num := (el->'position'->>'x')::numeric + (el->'dimensions'->>'width')::numeric;
     END IF;
-    IF (spec->'background') ? 'height' THEN
-      height_num := (spec->'background'->>'height')::numeric;
+    IF (el->'position'->>'y')::numeric + (el->'dimensions'->>'height')::numeric > height_num THEN
+      height_num := (el->'position'->>'y')::numeric + (el->'dimensions'->>'height')::numeric;
     END IF;
+  END LOOP;
+
+  -- Add background element first if it exists (with layerDepth 0)
+  IF spec ? 'background' AND (spec->'background') IS NOT NULL THEN
+    out_elements := out_elements || jsonb_build_array(
+      jsonb_build_object(
+        'id', 'background',
+        'type', 'image',
+        'x', 0::double precision,
+        'y', 0::double precision,
+        'width', width_num::double precision,
+        'height', height_num::double precision,
+        'rotation', 0,
+        'content', spec->'background'->>'regenerationPrompt',
+        'fontSize', 20,
+        'fontFamily', 'System',
+        'color', '#000000',
+        'backgroundColor', 'transparent',
+        'opacity', 1.0,
+        'shapeType', NULL,
+        'layerDepth', 0,
+        'locked', false,
+        'isBold', false,
+        'isItalic', false,
+        'iconName', NULL
+      )
+    );
   END IF;
 
   -- Iterate elements and map fields
@@ -243,17 +272,46 @@ BEGIN
     RAISE EXCEPTION 'spec.elements must be a non-empty array';
   END IF;
 
-  -- Attempt to read background width/height if present (optional)
-  IF spec ? 'background' THEN
-    IF (spec->'background') ? 'width' THEN
-      width_num := (spec->'background'->>'width')::numeric;
-    ELSIF (spec->'background') ? 'specification' THEN
-      -- no numeric size, keep defaults
-      NULL;
+  -- Calculate canvas dimensions from elements
+  -- Find max width and height from element positions and dimensions
+  FOR el_rec IN
+    SELECT value AS el
+    FROM jsonb_array_elements(elems) AS arr(value)
+  LOOP
+    el := el_rec.el;
+    IF (el->'position'->>'x')::numeric + (el->'dimensions'->>'width')::numeric > width_num THEN
+      width_num := (el->'position'->>'x')::numeric + (el->'dimensions'->>'width')::numeric;
     END IF;
-    IF (spec->'background') ? 'height' THEN
-      height_num := (spec->'background'->>'height')::numeric;
+    IF (el->'position'->>'y')::numeric + (el->'dimensions'->>'height')::numeric > height_num THEN
+      height_num := (el->'position'->>'y')::numeric + (el->'dimensions'->>'height')::numeric;
     END IF;
+  END LOOP;
+
+  -- Add background element first if it exists (with layerDepth 0)
+  IF spec ? 'background' AND (spec->'background') IS NOT NULL THEN
+    out_elements := out_elements || jsonb_build_array(
+      jsonb_build_object(
+        'id', 'background',
+        'type', 'image',
+        'x', 0::double precision,
+        'y', 0::double precision,
+        'width', width_num::double precision,
+        'height', height_num::double precision,
+        'rotation', 0,
+        'content', spec->'background'->>'regenerationPrompt',
+        'fontSize', 20,
+        'fontFamily', 'System',
+        'color', '#000000',
+        'backgroundColor', 'transparent',
+        'opacity', 1.0,
+        'shapeType', NULL,
+        'layerDepth', 0,
+        'locked', false,
+        'isBold', false,
+        'isItalic', false,
+        'iconName', NULL
+      )
+    );
   END IF;
 
   -- Iterate elements and map fields

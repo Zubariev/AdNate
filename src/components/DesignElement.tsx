@@ -235,7 +235,7 @@ const DesignElement: React.FC<DesignElementProps> = ({
               onChange={(e) => onUpdate({ ...element, content: e.target.value })}
               onBlur={() => setIsEditing(false)}
               style={textStyle}
-              className="w-full h-full p-0 bg-transparent border-none resize-none focus:outline-none"
+              className="p-0 w-full h-full bg-transparent border-none resize-none focus:outline-none"
             />
           ) : (
             <div style={textStyle}>{element.content}</div>
@@ -246,7 +246,8 @@ const DesignElement: React.FC<DesignElementProps> = ({
           <img
             src={element.content}
             alt="Design element"
-            className="object-cover w-full h-full"
+            className="object-cover w-full h-full pointer-events-none"
+            draggable={false}
           />
         )}
         {element.type === 'line' && (
@@ -260,39 +261,39 @@ const DesignElement: React.FC<DesignElementProps> = ({
       {isSelected && !element.locked && (
         <>
           <div 
-            className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-nw-resize -top-1 -left-1"
+            className="absolute -top-1 -left-1 w-3 h-3 bg-white rounded-full border border-blue-500 -translate-x-1/2 -translate-y-1/2 cursor-nw-resize"
             onMouseDown={(e) => handleResize(e, 'nw')}
           />
           <div 
-            className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-n-resize top-0 left-1/2"
+            className="absolute top-0 left-1/2 w-3 h-3 bg-white rounded-full border border-blue-500 -translate-x-1/2 -translate-y-1/2 cursor-n-resize"
             onMouseDown={(e) => handleResize(e, 'n')}
           />
           <div 
-            className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-ne-resize -top-1 -right-1"
+            className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full border border-blue-500 -translate-x-1/2 -translate-y-1/2 cursor-ne-resize"
             onMouseDown={(e) => handleResize(e, 'ne')}
           />
           <div 
-            className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-w-resize top-1/2 -left-1"
+            className="absolute -left-1 top-1/2 w-3 h-3 bg-white rounded-full border border-blue-500 -translate-x-1/2 -translate-y-1/2 cursor-w-resize"
             onMouseDown={(e) => handleResize(e, 'w')}
           />
           <div 
-            className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-e-resize top-1/2 -right-1"
+            className="absolute -right-1 top-1/2 w-3 h-3 bg-white rounded-full border border-blue-500 -translate-x-1/2 -translate-y-1/2 cursor-e-resize"
             onMouseDown={(e) => handleResize(e, 'e')}
           />
           <div 
-            className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-sw-resize -bottom-1 -left-1"
+            className="absolute -bottom-1 -left-1 w-3 h-3 bg-white rounded-full border border-blue-500 -translate-x-1/2 -translate-y-1/2 cursor-sw-resize"
             onMouseDown={(e) => handleResize(e, 'sw')}
           />
           <div 
-            className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-s-resize bottom-0 left-1/2"
+            className="absolute bottom-0 left-1/2 w-3 h-3 bg-white rounded-full border border-blue-500 -translate-x-1/2 -translate-y-1/2 cursor-s-resize"
             onMouseDown={(e) => handleResize(e, 's')}
           />
           <div
-            className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-white border border-blue-500 rounded-full cursor-se-resize -bottom-1 -right-1"
+            className="absolute -right-1 -bottom-1 w-3 h-3 bg-white rounded-full border border-blue-500 -translate-x-1/2 -translate-y-1/2 cursor-se-resize"
             onMouseDown={(e) => handleResize(e, 'se')}
           />
           <div
-            className="absolute w-5 h-5 -translate-x-1/2 bg-white border border-blue-500 rounded-full shadow-md cursor-pointer -top-8 left-1/2"
+            className="absolute -top-8 left-1/2 w-5 h-5 bg-white rounded-full border border-blue-500 shadow-md -translate-x-1/2 cursor-pointer"
             onMouseDown={handleRotation}
           />
         </>

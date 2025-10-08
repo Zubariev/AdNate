@@ -243,24 +243,6 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             />
           </div>
 
-          {/* Layer Controls */}
-          <div className="pt-4 border-t">
-            <label className="block text-sm font-medium text-gray-700">Layer</label>
-            <div className="flex justify-between mt-2">
-              <button
-                onClick={() => onUpdateElement(elementState.id, { layerDepth: elementState.layerDepth + 1 })}
-                className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50"
-              >
-                <ChevronUp className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => onUpdateElement(elementState.id, { layerDepth: elementState.layerDepth - 1 })}
-                className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50"
-              >
-                <ChevronDown className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>

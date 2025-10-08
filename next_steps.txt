@@ -1,11 +1,15 @@
-1. wipe 3 concepts from Brief page once briefs.image_generation_status == "completed".
+Done 1. wipe 3 concepts from Brief page once briefs.image_generation_status == "completed".
 
-2. fix timeout issue on Brief page while brief enhancement proces and 3 concepts creation. 
+Done 2. fix timeout issue on Brief page while brief enhancement proces and 3 concepts creation. 
 Possible resolve: redirect user to the Loading page untill these process have been done.
 
-3. redirect user to an editor page after briefs.image_generation_status == "completed".
+Done 3. redirect user to an editor page after briefs.image_generation_status == "completed".
 
-4. place elemnts images on the canvas at editor page the user has been redirected. 
+Done 4. place elemnts images on the canvas at editor page the user has been redirected. 
+
+1. Fix the issue: Images are not editable on canvas via panel, only via JSON editor. 
+
+2. add logic for logo and other design attributes to be used in image generation.
 
 5. count LLM input tockens limits, create tocken limits for prompts. 
 

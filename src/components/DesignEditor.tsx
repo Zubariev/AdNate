@@ -191,12 +191,71 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onExp
       // Get the latest specification
       const latestSpec = specifications[0];
       const specElements = latestSpec.specificationData.elements;
+      const backgroundSpec = latestSpec.specificationData.background;
 
       console.log('Processing spec elements:', specElements);
+      console.log('Processing background spec:', backgroundSpec);
 
       // Create design elements from specifications and images
       const designElements: Element[] = [];
 
+      // FIRST: Process the background element if it exists
+      if (backgroundSpec) {
+        console.log('Processing background element');
+        
+        // Find the background image
+        const backgroundImage = elementImages.find(img => 
+          img.element_id === 'background' && img.image_type === 'transparent'
+        ) || elementImages.find(img => img.element_id === 'background');
+
+        if (backgroundImage) {
+          console.log('Found background image:', backgroundImage.image_url);
+          
+          // Calculate canvas dimensions from the spec elements
+          // Find the maximum x + width and y + height to determine canvas size
+          let maxWidth = 0;
+          let maxHeight = 0;
+          
+          for (const el of specElements) {
+            const elRight = el.position.x + el.dimensions.width;
+            const elBottom = el.position.y + el.dimensions.height;
+            if (elRight > maxWidth) maxWidth = elRight;
+            if (elBottom > maxHeight) maxHeight = elBottom;
+          }
+          
+          // Use calculated dimensions or defaults
+          const bgWidth = maxWidth > 0 ? maxWidth : canvasSize.width;
+          const bgHeight = maxHeight > 0 ? maxHeight : canvasSize.height;
+          
+          const backgroundElement: Element = {
+            id: 'background',
+            type: 'image',
+            x: 0,
+            y: 0,
+            width: bgWidth,
+            height: bgHeight,
+            rotation: 0,
+            content: backgroundImage.image_url,
+            opacity: 1,
+            layerDepth: 0, // Lowest layer depth so it renders at the back
+            locked: false,
+            fontSize: 20,
+            fontFamily: 'Arial',
+            color: '#000000',
+            backgroundColor: 'transparent',
+          };
+          
+          designElements.push(backgroundElement);
+          console.log('Added background element to design');
+          
+          // Update canvas size to match background
+          setCanvasSize({ width: bgWidth, height: bgHeight });
+        } else {
+          console.log('No background image found in element images');
+        }
+      }
+
+      // THEN: Process all other elements
       for (const specElement of specElements) {
         console.log(`Processing spec element: ${specElement.id} (${specElement.type})`);
         
@@ -674,7 +733,6 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onExp
         </div>
 
         <div className="overflow-y-auto p-4 w-80 bg-white border-l border-gray-200">
-          <h3 className="mb-4 text-lg font-semibold">Layers</h3>
           <LayerPanel
             elements={elements}
             selectedElement={selectedElement}
