@@ -7,7 +7,7 @@ Done 3. redirect user to an editor page after briefs.image_generation_status == 
 
 Done 4. place elemnts images on the canvas at editor page the user has been redirected. 
 
-1. Fix the issue: Images are not editable on canvas via panel, only via JSON editor. 
+Done 1. Fix the issue: Images are not editable on canvas via panel, only via JSON editor. 
 
 2. add logic for logo and other design attributes to be used in image generation.
 
