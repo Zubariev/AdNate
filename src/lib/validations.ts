@@ -1,23 +1,34 @@
 import { z } from 'zod';
 
 // Design element validation schemas
+// Helper for color validation - accepts hex colors or 'transparent'
+const colorSchema = z.string().refine(
+  (val) => /^#[0-9A-Fa-f]{6}$/.test(val) || val === 'transparent',
+  { message: "Color must be a hex color (#RRGGBB) or 'transparent'" }
+).optional();
+
 export const DesignElementSchema = z.object({
-  id: z.string().uuid(),
-  type: z.enum(['text', 'image', 'shape', 'line']),
+  id: z.string(),  // Changed from .uuid() to allow custom IDs like 'background'
+  type: z.enum(['text', 'image', 'shape', 'line', 'icon']),
   x: z.number().min(0).max(5000),
   y: z.number().min(0).max(5000),
   width: z.number().min(1).max(5000),
   height: z.number().min(1).max(5000),
   rotation: z.number().min(-360).max(360),
   layerDepth: z.number().min(0),
-  content: z.string().max(1000).optional(),
+  content: z.string().max(10000).optional(),  // Increased for image URLs
   fontSize: z.number().min(8).max(200).optional(),
   fontFamily: z.string().max(100).optional(),
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
-  backgroundColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
-  borderColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  color: colorSchema,
+  backgroundColor: colorSchema,
+  borderColor: colorSchema,
   borderWidth: z.number().min(0).max(20).optional(),
   opacity: z.number().min(0).max(1).optional(),
+  locked: z.boolean().optional(),
+  isBold: z.boolean().optional(),
+  isItalic: z.boolean().optional(),
+  shapeType: z.string().optional(),
+  iconName: z.string().optional(),
 });
 
 export const DesignSchema = z.object({

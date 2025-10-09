@@ -40,6 +40,9 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   }
 
   const handlePropertyUpdate = (property: keyof Element, value: string | number | boolean) => {
+    // Update local state immediately for responsive UI
+    setElementState(prev => prev ? { ...prev, [property]: value } : null);
+    // Then notify parent
     onUpdateElement(elementState.id, { [property]: value });
   };
 
