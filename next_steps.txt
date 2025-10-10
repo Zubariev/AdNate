@@ -9,12 +9,29 @@ Done 4. place elemnts images on the canvas at editor page the user has been redi
 
 Done 1. Fix the issue: Images are not editable on canvas via panel, only via JSON editor. 
 
-2. add logic for logo and other design attributes to be used in image generation.
+1. add logic for logo and other design attributes to be used in image generation.
 
-5. count LLM input tockens limits, create tocken limits for prompts. 
+2. count LLM input tockens limits, create tocken limits for prompts. 
 
-6. check if the background is REALLY transparent for elements generated: 
+3. check if the background is REALLY transparent for elements generated: 
 did I stored the same unprocessed (backgroud removal) image?
 
-7. clean up unused files (e.g. huggingface.tsx). fix relations to these files. 
+4. clean up unused files (e.g. huggingface.tsx). fix relations to these files. 
+
+5. make window with Canvas and side bars larger and closer to display borders.
+
+6. fix download image from editor 
+
+7. create logic for visuals uploading on editor page.
+
+8. fix top menu on the editor page: 
+remove Instagram, Facebook, Customn canvas size buttoms;
+back to designs gallery button fix;
+save design button fix.
+
+9. fix side bar menu: elements dont change the layer. 
+
+10. image size (background) and canvas size must be exact what was setted in the brief.
+
+11. On the Brief page, for image size field make dropdown menu with hardcoded options. 
 
