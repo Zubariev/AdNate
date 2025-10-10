@@ -121,14 +121,14 @@ const Toolbar: React.FC<ToolbarProps> = ({
   };
 
   return (
-    <div className="flex items-center justify-between h-16 px-4">
+    <div className="flex justify-between items-center px-4 h-16">
       <div className="flex items-center space-x-4">
         <button
           onClick={onShowGallery}
           className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
         >
           <ArrowLeft className="w-5 h-5" />
-          <span>Back to Designs</span>
+          <span>Go to Designs Gallery</span>
         </button>
         <div className="w-px h-6 bg-gray-300" />
         <span className="text-xl font-bold">Design Editor</span>
@@ -173,9 +173,9 @@ const Toolbar: React.FC<ToolbarProps> = ({
       </div>
 
       {isJSONEditorOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="flex fixed inset-0 z-50 justify-center items-center bg-black bg-opacity-50">
           <div className="w-[800px] rounded-lg bg-white p-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold">Edit Design JSON</h2>
               <button
                 onClick={() => setIsJSONEditorOpen(false)}
@@ -186,7 +186,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
             </div>
             
             {error && (
-              <div className="p-4 mb-4 text-red-600 rounded-md bg-red-50">
+              <div className="p-4 mb-4 text-red-600 bg-red-50 rounded-md">
                 {error}
               </div>
             )}
@@ -203,7 +203,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
             <div className="flex justify-end space-x-2">
               <button
                 onClick={() => setIsJSONEditorOpen(false)}
-                className="px-4 py-2 border rounded-md hover:bg-gray-50"
+                className="px-4 py-2 rounded-md border hover:bg-gray-50"
               >
                 Cancel
               </button>

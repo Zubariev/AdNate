@@ -138,7 +138,7 @@ export function AssetLibrary() {
             <h3 className="text-lg font-medium text-purple-300">Logo</h3>
             <div {...getLogoRootProps()} className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${isLogoDragActive ? 'border-purple-400 bg-purple-400/10' : 'border-gray-400 hover:border-purple-400/50 hover:bg-purple-400/5'}`}>
               <input {...getLogoInputProps()} />
-              <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+              <Upload className="mx-auto mb-2 w-8 h-8 text-gray-400" />
               {isLogoDragActive ? (
                 <p className="text-purple-300">Drop the logo here...</p>
               ) : (
@@ -151,7 +151,7 @@ export function AssetLibrary() {
                   <img
                     src={asset.url}
                     alt={asset.name}
-                    className="w-full h-24 object-cover cursor-pointer rounded border border-gray-300"
+                    className="object-cover w-full h-24 rounded border border-gray-300 cursor-pointer"
                     onClick={() => openDescriptionModal(asset)}
                     draggable
                     onDragStart={(e) => {
@@ -160,7 +160,7 @@ export function AssetLibrary() {
                   />
                   <button
                     onClick={() => removeAsset(asset.id)}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="flex absolute -top-2 -right-2 justify-center items-center w-6 h-6 text-white bg-red-500 rounded-full opacity-0 transition-opacity group-hover:opacity-100"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -171,10 +171,10 @@ export function AssetLibrary() {
 
           {/* Other Elements Section */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-pink-300">Other Elements</h3>
+            <h3 className="text-lg font-medium text-pink-300">Other Elements (e.g. Product Images, Design Elements, Photos, etc.)</h3>
             <div {...getImageRootProps()} className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${isImageDragActive ? 'border-pink-400 bg-pink-400/10' : 'border-gray-400 hover:border-pink-400/50 hover:bg-pink-400/5'}`}>
               <input {...getImageInputProps()} />
-              <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+              <Upload className="mx-auto mb-2 w-8 h-8 text-gray-400" />
               {isImageDragActive ? (
                 <p className="text-pink-300">Drop the images here...</p>
               ) : (
@@ -187,7 +187,7 @@ export function AssetLibrary() {
                   <img
                     src={asset.url}
                     alt={asset.name}
-                    className="w-full h-24 object-cover cursor-pointer rounded border border-gray-300"
+                    className="object-cover w-full h-24 rounded border border-gray-300 cursor-pointer"
                     onClick={() => openDescriptionModal(asset)}
                     draggable
                     onDragStart={(e) => {
@@ -196,7 +196,7 @@ export function AssetLibrary() {
                   />
                   <button
                     onClick={() => removeAsset(asset.id)}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="flex absolute -top-2 -right-2 justify-center items-center w-6 h-6 text-white bg-red-500 rounded-full opacity-0 transition-opacity group-hover:opacity-100"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -227,7 +227,7 @@ export function AssetLibrary() {
                 <div key={asset.id} className="relative group">
                   <div
                     style={{ backgroundColor: asset.url }}
-                    className="w-full h-12 rounded cursor-pointer border border-gray-300"
+                    className="w-full h-12 rounded border border-gray-300 cursor-pointer"
                     draggable
                     onDragStart={(e) => {
                       e.dataTransfer.setData("text/plain", asset.url);
@@ -235,11 +235,11 @@ export function AssetLibrary() {
                   />
                   <button
                     onClick={() => removeAsset(asset.id)}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="flex absolute -top-2 -right-2 justify-center items-center w-6 h-6 text-white bg-red-500 rounded-full opacity-0 transition-opacity group-hover:opacity-100"
                   >
                     <X className="w-4 h-4" />
                   </button>
-                  <p className="text-xs text-gray-400 mt-1 text-center">{asset.name}</p>
+                  <p className="mt-1 text-xs text-center text-gray-400">{asset.name}</p>
                 </div>
               ))}
             </div>
@@ -258,13 +258,13 @@ export function AssetLibrary() {
               <img
                 src={selectedAsset.url}
                 alt={selectedAsset.name}
-                className="w-full max-h-64 object-contain rounded"
+                className="object-contain w-full max-h-64 rounded"
               />
               <Textarea
                 placeholder="Enter a description for this image (optional)"
                 value={tempDescription}
                 onChange={(e) => setTempDescription(e.target.value)}
-                className="text-white border-gray-600 bg-gray-800 placeholder:text-gray-400"
+                className="text-white bg-gray-800 border-gray-600 placeholder:text-gray-400"
               />
             </div>
           )}
@@ -272,7 +272,7 @@ export function AssetLibrary() {
             <Button
               variant="outline"
               onClick={() => setIsDescriptionModalOpen(false)}
-              className="border-gray-600 text-gray-300 hover:bg-gray-800"
+              className="text-gray-300 border-gray-600 hover:bg-gray-800"
             >
               Cancel
             </Button>
