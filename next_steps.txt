@@ -33,5 +33,5 @@ save design button fix.
 
 10. image size (background) and canvas size must be exact what was setted in the brief.
 
-11. On the Brief page, for image size field make dropdown menu with hardcoded options. 
+Done 11. On the Brief page, for image size field make dropdown menu with hardcoded options. 
 

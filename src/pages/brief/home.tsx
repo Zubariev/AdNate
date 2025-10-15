@@ -46,6 +46,73 @@ import { briefSuggestions } from "../../lib/brief-suggestions.js";
 import { industryTemplates } from "../../lib/industry-templates.js";
 import { briefFormSchema, Brief, Concept, RawConcept } from "../../shared/schema.js";
 
+// Social Media Image Sizes
+const imageSizes = {
+  facebook: [
+    { label: "Cover Photo", value: "851x315" },
+    { label: "Feed Post", value: "1200x630" },
+    { label: "Event Image", value: "1920x1005" },
+    { label: "Fundraiser Image", value: "800x300" },
+    { label: "Stories", value: "1080x1920" },
+    { label: "Ad Image", value: "1080x1080" },
+  ],
+  twitter: [
+    { label: "Card Image", value: "120x120" },
+    { label: "Header Image", value: "1500x500" },
+    { label: "In-stream Image", value: "1600x900" },
+    { label: "Image Ad with App Buttons", value: "800x418" },
+    { label: "Image Ad with App Buttons (Square)", value: "800x800" },
+    { label: "Image Ad with Conversation Buttons", value: "800x418" },
+    { label: "Image Ad with Polls", value: "800x418" },
+    { label: "Image Ad with Polls (Square)", value: "800x800" },
+    { label: "Image Ad with Website Buttons", value: "800x418" },
+    { label: "Image Ad with Website Buttons (Square)", value: "800x800" },
+    { label: "Standalone Image Ad", value: "1200x1200" },
+    { label: "Standalone Image Ad (Landscape)", value: "1200x628" },
+  ],
+  linkedin: [
+    { label: "Company Cover Photo", value: "1128x191" },
+    { label: "Post and Link Image", value: "1200x627" },
+    { label: "Life Tab Main Image", value: "1128x376" },
+    { label: "Life Tab Custom Modules", value: "502x282" },
+    { label: "Life Tab Company Photo", value: "900x600" },
+    { label: "Horizontal/Landscape Image Ad", value: "1200x628" },
+    { label: "Square Image Ad", value: "1200x1200" },
+    { label: "Vertical Image Ad", value: "628x1200" },
+    { label: "Vertical Image Ad (Alt 1)", value: "600x900" },
+    { label: "Vertical Image Ad (Alt 2)", value: "720x900" },
+  ],
+  instagram: [
+    { label: "Feed Post (Portrait)", value: "1080x1350" },
+    { label: "Feed Post (Square)", value: "1080x1080" },
+    { label: "Feed Post (Landscape)", value: "1080x566" },
+    { label: "Story", value: "1080x1920" },
+    { label: "Carousel (Landscape)", value: "1080x566" },
+    { label: "Carousel (Square)", value: "1080x1080" },
+    { label: "Carousel (Portrait)", value: "1080x1350" },
+    { label: "Reels", value: "1080x1920" },
+    { label: "Landscape Ad", value: "1080x566" },
+    { label: "Square Ad", value: "1080x1080" },
+  ],
+  youtube: [
+    { label: "Banner", value: "2048x1152" },
+    { label: "Video (Recommended)", value: "1920x1080" },
+    { label: "Shorts", value: "1080x1920" },
+    { label: "Thumbnail", value: "1280x720" },
+    { label: "Stories", value: "1080x1920" },
+    { label: "In-stream Ad", value: "1920x1080" },
+    { label: "In-feed Ad", value: "1280x720" },
+    { label: "Bumper Ad", value: "1920x1080" },
+    { label: "Display Ad (Small)", value: "300x60" },
+    { label: "Overlay Ad (Landscape)", value: "1920x1080" },
+    { label: "Overlay Ad (Portrait)", value: "1080x1920" },
+    { label: "Overlay Ad (Square)", value: "1080x1080" },
+  ],
+  tiktok: [
+    { label: "Video/Ad", value: "1080x1920" },
+  ],
+};
+
 // Extended Brief type to include image generation status
 interface ExtendedBrief extends Brief {
   imageGenerationStatus?: string;
@@ -418,17 +485,57 @@ export default function Home() {
                   name="bannerSizes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Banner Sizes</FormLabel>
-                      <FormControl className="text-white border-0 bg-white/10 placeholder:text-gray-400 focus-visible:ring-purple-400">
-                        <Input placeholder="e.g. 728x90, 300x250, 160x600" {...field} />
-                      </FormControl>
-                      <KeywordSuggestions
-                        keywords={briefSuggestions.bannerSizes}
-                        onSelect={(keyword) => {
-                          const size = keyword.split(" ")[0]; // Extract just the dimensions
-                          field.onChange(field.value ? `${field.value}, ${size}` : size);
-                        }}
-                      />
+                      <FormLabel>Image Size</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="text-white border-0 bg-white/10 focus-visible:ring-purple-400">
+                            <SelectValue placeholder="Select a social media image size" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="max-h-[400px]">
+                          <div className="px-2 py-1.5 text-sm font-semibold text-purple-400">Facebook</div>
+                          {imageSizes.facebook.map((size) => (
+                            <SelectItem key={`facebook-${size.value}`} value={size.value}>
+                              {size.label} - {size.value}
+                            </SelectItem>
+                          ))}
+                          
+                          <div className="px-2 py-1.5 mt-2 text-sm font-semibold text-purple-400">Twitter</div>
+                          {imageSizes.twitter.map((size) => (
+                            <SelectItem key={`twitter-${size.value}`} value={size.value}>
+                              {size.label} - {size.value}
+                            </SelectItem>
+                          ))}
+                          
+                          <div className="px-2 py-1.5 mt-2 text-sm font-semibold text-purple-400">LinkedIn</div>
+                          {imageSizes.linkedin.map((size) => (
+                            <SelectItem key={`linkedin-${size.value}`} value={size.value}>
+                              {size.label} - {size.value}
+                            </SelectItem>
+                          ))}
+                          
+                          <div className="px-2 py-1.5 mt-2 text-sm font-semibold text-purple-400">Instagram</div>
+                          {imageSizes.instagram.map((size) => (
+                            <SelectItem key={`instagram-${size.value}`} value={size.value}>
+                              {size.label} - {size.value}
+                            </SelectItem>
+                          ))}
+                          
+                          <div className="px-2 py-1.5 mt-2 text-sm font-semibold text-purple-400">YouTube</div>
+                          {imageSizes.youtube.map((size) => (
+                            <SelectItem key={`youtube-${size.value}`} value={size.value}>
+                              {size.label} - {size.value}
+                            </SelectItem>
+                          ))}
+                          
+                          <div className="px-2 py-1.5 mt-2 text-sm font-semibold text-purple-400">TikTok</div>
+                          {imageSizes.tiktok.map((size) => (
+                            <SelectItem key={`tiktok-${size.value}`} value={size.value}>
+                              {size.label} - {size.value}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
