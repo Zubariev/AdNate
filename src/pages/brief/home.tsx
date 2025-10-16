@@ -111,6 +111,16 @@ const imageSizes = {
   tiktok: [
     { label: "Video/Ad", value: "1080x1920" },
   ],
+  googleAds: [
+    { label: "Landscape (1.91:1) - Recommended", value: "1200x628" },
+    { label: "Landscape (1.91:1) - Minimum", value: "600x314" },
+    { label: "Square (1:1) - Recommended", value: "1200x1200" },
+    { label: "Square (1:1) - Minimum", value: "300x300" },
+    { label: "Vertical (4:5) - Recommended", value: "1200x1500" },
+    { label: "Vertical (4:5) - Minimum", value: "320x400" },
+    { label: "Vertical (9:16) - Recommended", value: "1080x1920" },
+    { label: "Vertical (9:16) - Minimum", value: "600x1067" },
+  ],
 };
 
 // Extended Brief type to include image generation status
@@ -531,6 +541,13 @@ export default function Home() {
                           <div className="px-2 py-1.5 mt-2 text-sm font-semibold text-purple-400">TikTok</div>
                           {imageSizes.tiktok.map((size) => (
                             <SelectItem key={`tiktok-${size.value}`} value={size.value}>
+                              {size.label} - {size.value}
+                            </SelectItem>
+                          ))}
+                          
+                          <div className="px-2 py-1.5 mt-2 text-sm font-semibold text-purple-400">Google Ads</div>
+                          {imageSizes.googleAds.map((size) => (
+                            <SelectItem key={`googleads-${size.value}`} value={size.value}>
                               {size.label} - {size.value}
                             </SelectItem>
                           ))}
