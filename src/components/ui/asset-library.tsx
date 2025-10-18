@@ -13,17 +13,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from "./dialog";
-
-type Asset = {
-  id: string;
-  name: string;
-  url: string;
-  type: "logo" | "image" | "color";
-  description?: string;
-};
+import { useAssetLibrary, Asset } from "../../contexts/AssetLibraryContext";
 
 export function AssetLibrary() {
-  const [assets, setAssets] = useState<Asset[]>([]);
+  const { addAsset, removeAsset, updateAsset, getLogoAssets, getImageAssets, getColorAssets } = useAssetLibrary();
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
   const [tempDescription, setTempDescription] = useState("");
@@ -38,14 +31,15 @@ export function AssetLibrary() {
           id: Date.now().toString() + Math.random(),
           name: file.name,
           url: reader.result as string,
+          file: file, // Store the original File object
           type: "logo",
           description: ""
         };
-        setAssets(prev => [...prev, newAsset]);
+        addAsset(newAsset);
       };
       reader.readAsDataURL(file);
     });
-  }, []);
+  }, [addAsset]);
 
   // Other images dropzone
   const onImagesDrop = useCallback((acceptedFiles: File[]) => {
@@ -56,14 +50,15 @@ export function AssetLibrary() {
           id: Date.now().toString() + Math.random(),
           name: file.name,
           url: reader.result as string,
+          file: file, // Store the original File object
           type: "image",
           description: ""
         };
-        setAssets(prev => [...prev, newAsset]);
+        addAsset(newAsset);
       };
       reader.readAsDataURL(file);
     });
-  }, []);
+  }, [addAsset]);
 
   const { getRootProps: getLogoRootProps, getInputProps: getLogoInputProps, isDragActive: isLogoDragActive } = useDropzone({ 
     onDrop: onLogosDrop,
@@ -97,12 +92,8 @@ export function AssetLibrary() {
       url: colorInput,
       type: "color"
     };
-    setAssets([...assets, newAsset]);
+    addAsset(newAsset);
     setColorInput("");
-  };
-
-  const removeAsset = (id: string) => {
-    setAssets(prev => prev.filter(asset => asset.id !== id));
   };
 
   const openDescriptionModal = (asset: Asset) => {
@@ -113,11 +104,7 @@ export function AssetLibrary() {
 
   const saveDescription = () => {
     if (selectedAsset) {
-      setAssets(prev => prev.map(asset => 
-        asset.id === selectedAsset.id 
-          ? { ...asset, description: tempDescription }
-          : asset
-      ));
+      updateAsset(selectedAsset.id, { description: tempDescription });
     }
     setIsDescriptionModalOpen(false);
     setSelectedAsset(null);
@@ -146,7 +133,7 @@ export function AssetLibrary() {
               )}
             </div>
             <div className="grid grid-cols-4 gap-4">
-              {assets.filter(a => a.type === "logo").map(asset => (
+              {getLogoAssets().map(asset => (
                 <div key={asset.id} className="relative group">
                   <img
                     src={asset.url}
@@ -182,7 +169,7 @@ export function AssetLibrary() {
               )}
             </div>
             <div className="grid grid-cols-4 gap-4">
-              {assets.filter(a => a.type === "image").map(asset => (
+              {getImageAssets().map(asset => (
                 <div key={asset.id} className="relative group">
                   <img
                     src={asset.url}
@@ -223,7 +210,7 @@ export function AssetLibrary() {
               </Button>
             </div>
             <div className="grid grid-cols-8 gap-2">
-              {assets.filter(a => a.type === "color").map(asset => (
+              {getColorAssets().map(asset => (
                 <div key={asset.id} className="relative group">
                   <div
                     style={{ backgroundColor: asset.url }}

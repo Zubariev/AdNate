@@ -28,6 +28,7 @@ export interface IStorage {
   findOrphanedImageInStorage(conceptId: string): Promise<{ path: string; name: string } | null>;
   createReferenceImageRecord(data: InsertReferenceImage): Promise<ReferenceImage>;
   findLatestSpecification(briefId: string, conceptId: string): Promise<ElementSpecification | null>;
+  uploadAssetImage(briefId: string, file: Buffer, fileName: string, mimeType: string, assetType: 'logo' | 'asset'): Promise<string>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -308,6 +309,36 @@ export class DatabaseStorage implements IStorage {
 
     } catch (error) {
       console.error('Error storing element image:', error);
+      throw error;
+    }
+  }
+
+  async uploadAssetImage(briefId: string, file: Buffer, fileName: string, mimeType: string, assetType: 'logo' | 'asset'): Promise<string> {
+    try {
+      const bucketName = assetType === 'logo' ? 'logos' : 'assets';
+      const timestamp = Date.now();
+      const safeFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storagePath = `${briefId}/${timestamp}_${safeFileName}`;
+
+      const { error } = await supabase.storage
+        .from(bucketName)
+        .upload(storagePath, file, {
+          contentType: mimeType,
+          cacheControl: '3600',
+          upsert: false,
+        });
+      
+      if (error) {
+        console.error('Supabase storage upload error:', error);
+        throw new Error(`Failed to upload to Supabase storage: ${error.message}`);
+      }
+      
+      const publicUrl = await this.getPublicUrl(bucketName, storagePath);
+      console.log(`Asset ${assetType} successfully stored at:`, publicUrl);
+      
+      return publicUrl;
+    } catch (error) {
+      console.error(`Error uploading asset ${assetType}:`, error);
       throw error;
     }
   }
@@ -640,6 +671,12 @@ class InMemoryStorage implements IStorage {
   async getPublicUrl(bucketName: string, fileName: string): Promise<string> {
       console.log(`In-memory storage: Getting public url for ${fileName} in bucket ${bucketName}`);
       return `https://mock.storage.com/${bucketName}/${fileName}`;
+  }
+
+  async uploadAssetImage(briefId: string, _file: Buffer, fileName: string, _mimeType: string, assetType: 'logo' | 'asset'): Promise<string> {
+      console.log(`In-memory storage: Uploading ${assetType} image ${fileName} for brief ${briefId}`);
+      const bucketName = assetType === 'logo' ? 'logos' : 'assets';
+      return `https://mock.storage.com/${bucketName}/${briefId}/${fileName}`;
   }
 
   // Mock implementations for new methods

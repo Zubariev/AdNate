@@ -66,10 +66,77 @@ router.post('/', protect, async (req, res) => {
   }
 });
 
+// New endpoint to upload asset library images
+router.post('/:briefId/upload-assets', protect, async (req, res) => {
+  try {
+    const { briefId } = req.params;
+    const { assets } = req.body;
+
+    if (!assets || !Array.isArray(assets)) {
+      return res.status(400).json({ message: 'Assets array is required.' });
+    }
+
+    const brief = await storage.getBrief(briefId);
+    if (!brief) {
+      return res.status(404).json({ message: 'Brief not found.' });
+    }
+
+    const uploadedAssets: { type: string; url: string; name: string; description?: string }[] = [];
+
+    for (const asset of assets) {
+      if (asset.type === 'color') {
+        // Colors don't need to be uploaded to storage
+        uploadedAssets.push({
+          type: 'color',
+          url: asset.url,
+          name: asset.name,
+          description: asset.description
+        });
+        continue;
+      }
+
+      if (!asset.file || !asset.url) {
+        console.warn(`Skipping asset ${asset.name} - missing file data`);
+        continue;
+      }
+
+      try {
+        // Convert base64 to buffer
+        const base64Data = asset.url.split(',')[1];
+        const buffer = Buffer.from(base64Data, 'base64');
+        const mimeType = asset.url.match(/data:(image\/\w+);base64,/)?.[1] || 'image/png';
+        
+        const assetType = asset.type === 'logo' ? 'logo' : 'asset';
+        const publicUrl = await storage.uploadAssetImage(briefId, buffer, asset.name, mimeType, assetType);
+
+        uploadedAssets.push({
+          type: asset.type,
+          url: publicUrl,
+          name: asset.name,
+          description: asset.description
+        });
+
+        console.log(`Uploaded ${assetType}: ${asset.name} to ${publicUrl}`);
+      } catch (uploadError) {
+        console.error(`Error uploading asset ${asset.name}:`, uploadError);
+      }
+    }
+
+    res.status(200).json({
+      message: 'Assets uploaded successfully',
+      uploadedAssets
+    });
+  } catch (error) {
+    console.error('Error uploading assets:', error);
+    res.status(500).json({ message: (error as Error).message || 'Failed to upload assets' });
+  }
+});
+
 // New endpoint to enhance a brief
 router.post('/:briefId/enhance', protect, async (req, res) => {
   try {
     const { briefId } = req.params;
+    const { assets } = req.body; // Receive assets from the request body
     console.log(`Attempting to enhance brief with ID: ${briefId}`);
 
     const brief = await storage.getBrief(briefId);
@@ -80,6 +147,55 @@ router.post('/:briefId/enhance', protect, async (req, res) => {
     if (!process.env.GEMINI_API_KEY) {
       console.warn('Gemini API key not configured. Cannot enhance brief.');
       return res.status(503).json({ message: 'AI service unavailable: Gemini API key not set.' });
+    }
+
+    // Upload assets if provided
+    const uploadedAssets: Array<{ type: string; url: string; name: string; description?: string }> = [];
+    if (assets && Array.isArray(assets) && assets.length > 0) {
+      console.log(`Uploading ${assets.length} assets for brief ${briefId}`);
+      
+      for (const asset of assets) {
+        if (asset.type === 'color') {
+          uploadedAssets.push({
+            type: 'color',
+            url: asset.url,
+            name: asset.name,
+            description: asset.description
+          });
+          continue;
+        }
+
+        if (!asset.url) {
+          console.warn(`Skipping asset ${asset.name} - missing file data`);
+          continue;
+        }
+
+        try {
+          // Convert base64 to buffer
+          const base64Data = asset.url.split(',')[1];
+          if (!base64Data) {
+            console.warn(`Skipping asset ${asset.name} - invalid base64 data`);
+            continue;
+          }
+          
+          const buffer = Buffer.from(base64Data, 'base64');
+          const mimeType = asset.url.match(/data:(image\/\w+);base64,/)?.[1] || 'image/png';
+          
+          const assetType = asset.type === 'logo' ? 'logo' : 'asset';
+          const publicUrl = await storage.uploadAssetImage(briefId, buffer, asset.name, mimeType, assetType);
+
+          uploadedAssets.push({
+            type: asset.type,
+            url: publicUrl,
+            name: asset.name,
+            description: asset.description
+          });
+
+          console.log(`✅ Uploaded ${assetType}: ${asset.name} to ${publicUrl}`);
+        } catch (uploadError) {
+          console.error(`Error uploading asset ${asset.name}:`, uploadError);
+        }
+      }
     }
 
     const briefInput: BriefInput = {
@@ -129,7 +245,8 @@ router.post('/:briefId/enhance', protect, async (req, res) => {
       const responseWithConcepts = {
         ...updatedBrief,
         concepts: savedConcepts,
-        conceptsGenerated: true
+        conceptsGenerated: true,
+        uploadedAssets: uploadedAssets
       };
       
       res.status(200).json(responseWithConcepts);
@@ -139,7 +256,8 @@ router.post('/:briefId/enhance', protect, async (req, res) => {
       res.status(200).json({
         ...updatedBrief,
         conceptsGenerated: false,
-        conceptsError: (conceptError as Error).message
+        conceptsError: (conceptError as Error).message,
+        uploadedAssets: uploadedAssets
       });
     }
   } catch (error) {

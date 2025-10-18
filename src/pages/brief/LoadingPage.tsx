@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import Lottie from "lottie-react";
 import { apiClient } from "../../lib/apiClient";
 import { useToast } from "../../hooks/use-toast";
+import { useAssetLibrary } from "../../contexts/AssetLibraryContext";
 
 // Define a simple animation data type and use a placeholder
 // The actual animation will be loaded at runtime
@@ -70,6 +71,7 @@ export default function LoadingScreen() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const { assets } = useAssetLibrary();
   const pollingIntervalRef = useRef<number | null>(null);
   const hasStartedGenerationRef = useRef(false); // Track if generation has been started
   const [loadingType, setLoadingType] = useState<"concepts" | "images">("concepts"); // Default to concepts loading
@@ -226,7 +228,8 @@ export default function LoadingScreen() {
       });
       
       // The enhance endpoint now automatically generates concepts
-      const enhanceResponse = await apiClient.post(`/briefs/${briefId}/enhance`, {});
+      // Send assets from context to be uploaded to storage
+      const enhanceResponse = await apiClient.post(`/briefs/${briefId}/enhance`, { assets });
       if (!enhanceResponse.data || enhanceResponse.error || enhanceResponse.status >= 400) {
         throw new Error(enhanceResponse.error || 'Failed to enhance brief and generate concepts');
       }

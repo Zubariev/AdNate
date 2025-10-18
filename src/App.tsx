@@ -8,6 +8,7 @@ import { Toaster } from "./components/ui/toaster";
 import { apiClient } from './lib/apiClient';
 import { useEffect } from 'react';
 import { supabase } from './api/supabase';
+import { AssetLibraryProvider } from './contexts/AssetLibraryContext';
 
 const queryClient = new QueryClient();
 const SERVER_BASE_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5001';
@@ -16,7 +17,9 @@ const SERVER_BASE_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:500
 function AppWithAuth() {
   return (
     <AuthProvider>
-      <AppContent />
+      <AssetLibraryProvider>
+        <AppContent />
+      </AssetLibraryProvider>
     </AuthProvider>
   );
 }
