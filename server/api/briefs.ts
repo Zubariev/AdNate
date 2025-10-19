@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { storage } from '../storage.js';
 import { supabase } from '../db.js';
 import { enhanceBrief, generateConceptsFromEnhancedBrief, BriefInput, EnhancedBriefOutput, generateReferenceImage, generateElementSpecifications, processBriefImages, getElementSpecifications } from '../lib/gemini.js';
-import { briefFormSchema, InsertBrief, InsertConcept, RawConcept, InsertSelectedConcept } from "@shared/schema";
+import { briefFormSchema, InsertBrief, InsertConcept, RawConcept, InsertSelectedConcept, BriefAsset } from "@shared/schema";
 import { ZodError } from 'zod';
 import { protect } from '../middleware/auth.js';
 import { EnhancedBriefData } from '../../src/types.js';
@@ -28,8 +28,21 @@ router.post('/', protect, async (req, res) => {
   try {
     console.log('Request body for initial brief creation:', req.body);
     
-    // Extract colors from request body
-    const { colors, ...briefData } = req.body;
+    // Extract colors and assets from request body
+    const { colors, assets, ...briefData } = req.body;
+    
+    // Validate asset limits
+    if (assets && Array.isArray(assets)) {
+      const logoCount = assets.filter((a: { type: string }) => a.type === 'logo').length;
+      const imageCount = assets.filter((a: { type: string }) => a.type === 'image').length;
+      
+      if (logoCount > 1) {
+        return res.status(400).json({ message: 'Maximum 1 logo allowed' });
+      }
+      if (imageCount > 1) {
+        return res.status(400).json({ message: 'Maximum 1 asset image allowed' });
+      }
+    }
     
     const validatedData = briefFormSchema.parse(briefData);
     console.log('Validation passed, data:', validatedData);
@@ -160,6 +173,8 @@ router.post('/:briefId/enhance', protect, async (req, res) => {
 
     // Upload assets if provided
     const uploadedAssets: Array<{ type: string; url: string; name: string; description?: string }> = [];
+    const savedAssets: BriefAsset[] = [];
+    
     if (assets && Array.isArray(assets) && assets.length > 0) {
       console.log(`Uploading ${assets.length} assets for brief ${briefId}`);
       
@@ -191,16 +206,29 @@ router.post('/:briefId/enhance', protect, async (req, res) => {
           const mimeType = asset.url.match(/data:(image\/\w+);base64,/)?.[1] || 'image/png';
           
           const assetType = asset.type === 'logo' ? 'logo' : 'asset';
-          const publicUrl = await storage.uploadAssetImage(briefId, buffer, asset.name, mimeType, assetType);
+          const uploadResult = await storage.uploadAssetImage(briefId, buffer, asset.name, mimeType, assetType);
 
           uploadedAssets.push({
             type: asset.type,
-            url: publicUrl,
+            url: uploadResult.url,
             name: asset.name,
             description: asset.description
           });
 
-          console.log(`✅ Uploaded ${assetType}: ${asset.name} to ${publicUrl}`);
+          // Save asset to brief_assets table
+          const savedAsset = await storage.saveBriefAsset(briefId, req.user!.id, {
+            assetType: asset.type,
+            name: asset.name,
+            url: uploadResult.url,
+            description: asset.description,
+            imagePath: uploadResult.imagePath,
+            fileName: uploadResult.fileName,
+            fileSize: uploadResult.fileSize,
+            mimeType: uploadResult.mimeType
+          });
+          savedAssets.push(savedAsset);
+
+          console.log(`✅ Uploaded and saved ${assetType}: ${asset.name} to ${uploadResult.url}`);
         } catch (uploadError) {
           console.error(`Error uploading asset ${asset.name}:`, uploadError);
         }
@@ -485,9 +513,47 @@ router.post('/:briefId/generate-reference-image', protect, async (req, res) => {
         return res.status(200).json(recoveredImage);
     }
 
-    // Generate the reference image
+    // Get assets and colors for this brief
+    const briefAssets = await storage.getBriefAssets(briefId);
+    const briefColors = await storage.getBriefColors(briefId);
+    
+    // Download base64 data for image assets
+    const assetImagesBase64: Array<{ type: string; base64: string; name: string; description?: string }> = [];
+    
+    for (const asset of briefAssets) {
+      try {
+        const bucket = asset.assetType === 'logo' ? 'logos' : 'assets';
+        const { data, error } = await supabase.storage
+          .from(bucket)
+          .download(asset.imagePath);
+        
+        if (!error && data) {
+          const buffer = Buffer.from(await data.arrayBuffer());
+          const base64 = buffer.toString('base64');
+          assetImagesBase64.push({
+            type: asset.assetType,
+            base64: `data:${asset.mimeType};base64,${base64}`,
+            name: asset.name,
+            description: asset.description || undefined
+          });
+          console.log(`✅ Downloaded asset ${asset.name} for reference image generation`);
+        }
+      } catch (err) {
+        console.error(`Failed to download asset ${asset.name}:`, err);
+      }
+    }
+    
+    // Generate the reference image with assets
     console.log("No existing reference image found, proceeding with generation.");
-    const newReferenceImage = await generateReferenceImage(brief.enhancedBrief as EnhancedBriefData, concept, req.user.id);
+    const newReferenceImage = await generateReferenceImage(
+      brief.enhancedBrief as EnhancedBriefData,
+      concept,
+      req.user.id,
+      {
+        images: assetImagesBase64,
+        colors: briefColors.map(c => ({ name: c.name, value: c.colorValue }))
+      }
+    );
     
     res.status(200).json(newReferenceImage);
   } catch (error) {

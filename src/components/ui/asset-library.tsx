@@ -22,8 +22,20 @@ export function AssetLibrary() {
   const [tempDescription, setTempDescription] = useState("");
   const [colorInput, setColorInput] = useState("");
 
+  // Track asset counts for limits
+  const logos = getLogoAssets();
+  const images = getImageAssets();
+  const canAddLogo = logos.length < 1;
+  const canAddImage = images.length < 1;
+
   // Logo dropzone
   const onLogosDrop = useCallback((acceptedFiles: File[]) => {
+    // Check limit before adding
+    if (getLogoAssets().length >= 1) {
+      alert("Maximum 1 logo allowed. Please remove the existing logo first.");
+      return;
+    }
+    
     acceptedFiles.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -43,6 +55,12 @@ export function AssetLibrary() {
 
   // Other images dropzone
   const onImagesDrop = useCallback((acceptedFiles: File[]) => {
+    // Check limit before adding
+    if (getImageAssets().length >= 1) {
+      alert("Maximum 1 asset image allowed. Please remove the existing image first.");
+      return;
+    }
+    
     acceptedFiles.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -122,11 +140,20 @@ export function AssetLibrary() {
         <CardContent className="space-y-6">
           {/* Logo Section */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-purple-300">Logo</h3>
-            <div {...getLogoRootProps()} className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${isLogoDragActive ? 'border-purple-400 bg-purple-400/10' : 'border-gray-400 hover:border-purple-400/50 hover:bg-purple-400/5'}`}>
-              <input {...getLogoInputProps()} />
+            <h3 className="text-lg font-medium text-purple-300">Logo (Max: 1)</h3>
+            <div 
+              {...getLogoRootProps()} 
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                !canAddLogo ? 'opacity-50 cursor-not-allowed bg-gray-800' :
+                isLogoDragActive ? 'border-purple-400 bg-purple-400/10' : 
+                'border-gray-400 hover:border-purple-400/50 hover:bg-purple-400/5 cursor-pointer'
+              }`}
+            >
+              <input {...getLogoInputProps()} disabled={!canAddLogo} />
               <Upload className="mx-auto mb-2 w-8 h-8 text-gray-400" />
-              {isLogoDragActive ? (
+              {!canAddLogo ? (
+                <p className="text-red-400">Maximum 1 logo allowed</p>
+              ) : isLogoDragActive ? (
                 <p className="text-purple-300">Drop the logo here...</p>
               ) : (
                 <p className="text-gray-300">Drag 'n' drop logo here, or click to select files</p>
@@ -158,11 +185,20 @@ export function AssetLibrary() {
 
           {/* Other Elements Section */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-pink-300">Other Elements (e.g. Product Images, Design Elements, Photos, etc.)</h3>
-            <div {...getImageRootProps()} className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${isImageDragActive ? 'border-pink-400 bg-pink-400/10' : 'border-gray-400 hover:border-pink-400/50 hover:bg-pink-400/5'}`}>
-              <input {...getImageInputProps()} />
+            <h3 className="text-lg font-medium text-pink-300">Other Elements (Max: 1)</h3>
+            <div 
+              {...getImageRootProps()} 
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                !canAddImage ? 'opacity-50 cursor-not-allowed bg-gray-800' :
+                isImageDragActive ? 'border-pink-400 bg-pink-400/10' : 
+                'border-gray-400 hover:border-pink-400/50 hover:bg-pink-400/5 cursor-pointer'
+              }`}
+            >
+              <input {...getImageInputProps()} disabled={!canAddImage} />
               <Upload className="mx-auto mb-2 w-8 h-8 text-gray-400" />
-              {isImageDragActive ? (
+              {!canAddImage ? (
+                <p className="text-red-400">Maximum 1 asset image allowed</p>
+              ) : isImageDragActive ? (
                 <p className="text-pink-300">Drop the images here...</p>
               ) : (
                 <p className="text-gray-300">Drag 'n' drop images here, or click to select files</p>

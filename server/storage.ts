@@ -1,6 +1,6 @@
 // Storage layer with proper typing
 import { db, supabase } from './routes'; // Import db and supabase instances
-import { Brief, briefs, Concept, concepts, InsertBrief, InsertConcept, InsertSelectedConcept, selectedConcepts, SelectedConcept, ElementSpecification, elementSpecifications, ReferenceImage, referenceImages, ElementSpecificationData, InsertReferenceImage, ElementImage, elementImages, InsertElementImage, BriefColor, briefColors, InsertBriefColor } from "@shared/schema";
+import { Brief, briefs, Concept, concepts, InsertBrief, InsertConcept, InsertSelectedConcept, selectedConcepts, SelectedConcept, ElementSpecification, elementSpecifications, ReferenceImage, referenceImages, ElementSpecificationData, InsertReferenceImage, ElementImage, elementImages, InsertElementImage, BriefColor, briefColors, InsertBriefColor, BriefAsset, briefAssets, InsertBriefAsset } from "@shared/schema";
 import { eq, and } from 'drizzle-orm';
 import { desc } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid'; // Import uuid
@@ -28,9 +28,17 @@ export interface IStorage {
   findOrphanedImageInStorage(conceptId: string): Promise<{ path: string; name: string } | null>;
   createReferenceImageRecord(data: InsertReferenceImage): Promise<ReferenceImage>;
   findLatestSpecification(briefId: string, conceptId: string): Promise<ElementSpecification | null>;
-  uploadAssetImage(briefId: string, file: Buffer, fileName: string, mimeType: string, assetType: 'logo' | 'asset'): Promise<string>;
+  uploadAssetImage(briefId: string, file: Buffer, fileName: string, mimeType: string, assetType: 'logo' | 'asset'): Promise<{
+    url: string;
+    imagePath: string;
+    fileName: string;
+    fileSize: number;
+    mimeType: string;
+  }>;
   saveBriefColors(briefId: string, userId: string, colors: Array<{ name: string; colorValue: string }>): Promise<BriefColor[]>;
   getBriefColors(briefId: string): Promise<BriefColor[]>;
+  saveBriefAsset(briefId: string, userId: string, asset: Omit<InsertBriefAsset, 'briefId' | 'userId'>): Promise<BriefAsset>;
+  getBriefAssets(briefId: string): Promise<BriefAsset[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -315,7 +323,13 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async uploadAssetImage(briefId: string, file: Buffer, fileName: string, mimeType: string, assetType: 'logo' | 'asset'): Promise<string> {
+  async uploadAssetImage(briefId: string, file: Buffer, fileName: string, mimeType: string, assetType: 'logo' | 'asset'): Promise<{
+    url: string;
+    imagePath: string;
+    fileName: string;
+    fileSize: number;
+    mimeType: string;
+  }> {
     try {
       const bucketName = assetType === 'logo' ? 'logos' : 'assets';
       const timestamp = Date.now();
@@ -338,7 +352,13 @@ export class DatabaseStorage implements IStorage {
       const publicUrl = await this.getPublicUrl(bucketName, storagePath);
       console.log(`Asset ${assetType} successfully stored at:`, publicUrl);
       
-      return publicUrl;
+      return {
+        url: publicUrl,
+        imagePath: storagePath,
+        fileName: safeFileName,
+        fileSize: file.length,
+        mimeType
+      };
     } catch (error) {
       console.error(`Error uploading asset ${assetType}:`, error);
       throw error;
@@ -531,6 +551,42 @@ export class DatabaseStorage implements IStorage {
       return [];
     }
   }
+
+  async saveBriefAsset(briefId: string, userId: string, asset: Omit<InsertBriefAsset, 'briefId' | 'userId'>): Promise<BriefAsset> {
+    if (!db) {
+      throw new Error('Database not initialized');
+    }
+    
+    try {
+      const assetRecord: InsertBriefAsset = {
+        briefId,
+        userId,
+        ...asset
+      };
+      
+      const [savedAsset] = await db.insert(briefAssets).values(assetRecord).returning();
+      console.log(`Saved asset ${asset.name} for brief ${briefId}`);
+      return savedAsset;
+    } catch (error) {
+      console.error('Error saving brief asset:', error);
+      throw error;
+    }
+  }
+
+  async getBriefAssets(briefId: string): Promise<BriefAsset[]> {
+    if (!db) {
+      console.warn('Drizzle DB not initialized, returning empty assets array.');
+      return [];
+    }
+
+    try {
+      const assets = await db.select().from(briefAssets).where(eq(briefAssets.briefId, briefId));
+      return assets;
+    } catch (error) {
+      console.error('Error fetching brief assets:', error);
+      return [];
+    }
+  }
 }
 
 class InMemoryStorage implements IStorage {
@@ -717,10 +773,23 @@ class InMemoryStorage implements IStorage {
       return `https://mock.storage.com/${bucketName}/${fileName}`;
   }
 
-  async uploadAssetImage(briefId: string, _file: Buffer, fileName: string, _mimeType: string, assetType: 'logo' | 'asset'): Promise<string> {
+  async uploadAssetImage(briefId: string, file: Buffer, fileName: string, mimeType: string, assetType: 'logo' | 'asset'): Promise<{
+    url: string;
+    imagePath: string;
+    fileName: string;
+    fileSize: number;
+    mimeType: string;
+  }> {
       console.log(`In-memory storage: Uploading ${assetType} image ${fileName} for brief ${briefId}`);
       const bucketName = assetType === 'logo' ? 'logos' : 'assets';
-      return `https://mock.storage.com/${bucketName}/${briefId}/${fileName}`;
+      const mockPath = `${briefId}/${Date.now()}_${fileName}`;
+      return {
+        url: `https://mock.storage.com/${bucketName}/${mockPath}`,
+        imagePath: mockPath,
+        fileName,
+        fileSize: file.length,
+        mimeType
+      };
   }
 
   // Mock implementations for new methods
@@ -777,6 +846,23 @@ class InMemoryStorage implements IStorage {
 
   async getBriefColors(briefId: string): Promise<BriefColor[]> {
     console.log(`In-memory storage: Getting colors for brief ${briefId}`);
+    return [];
+  }
+
+  async saveBriefAsset(briefId: string, userId: string, asset: Omit<InsertBriefAsset, 'briefId' | 'userId'>): Promise<BriefAsset> {
+    console.log(`In-memory storage: Saving asset ${asset.name} for brief ${briefId}`);
+    return {
+      id: uuidv4(),
+      briefId,
+      userId,
+      ...asset,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+  }
+
+  async getBriefAssets(briefId: string): Promise<BriefAsset[]> {
+    console.log(`In-memory storage: Getting assets for brief ${briefId}`);
     return [];
   }
 }

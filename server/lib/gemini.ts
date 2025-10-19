@@ -394,9 +394,17 @@ export async function generateConceptsFromEnhancedBrief(enhancedBrief: EnhancedB
   }
 }
 
-export async function generateReferenceImage(enhancedBriefData: EnhancedBriefData, concept: Concept, userId: string): Promise<ReferenceImage> {
+export async function generateReferenceImage(
+  enhancedBriefData: EnhancedBriefData,
+  concept: Concept,
+  userId: string,
+  assets?: {
+    images?: Array<{ type: string; base64: string; name: string; description?: string }>;
+    colors?: Array<{ name: string; value: string }>;
+  }
+): Promise<ReferenceImage> {
   // Build prompt - reference image should be a complete design WITH background
-  const prompt = `Create one professional advertising image for:
+  let prompt = `Create one professional advertising image for:
 Campaign: ${enhancedBriefData.project_name}
 Target: ${enhancedBriefData.target_audience}
 Message: ${enhancedBriefData.key_message}
@@ -405,8 +413,43 @@ Concept: ${concept.title}
 Description: ${concept.description}
 Elements: ${formatObjectForPrompt(concept.elements)}
 Additional Context: ${formatObjectForPrompt(concept.midjourneyPrompts)}
-Rationale: ${formatObjectForPrompt(concept.rationale)}
-IMPORTANT: Create a complete design with proper background as a mockup reference.`;
+Rationale: ${formatObjectForPrompt(concept.rationale)}`;
+
+  // Add colors to prompt if provided
+  if (assets?.colors && assets.colors.length > 0) {
+    prompt += `\nBrand Colors (use these colors): ${assets.colors.map(c => `${c.name} (${c.value})`).join(', ')}`;
+  }
+
+  prompt += `\nIMPORTANT: Create a complete design with proper background as a mockup reference.`;
+
+  // Prepare parts array for multimodal input
+  const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [
+    { text: prompt }
+  ];
+
+  // Add image assets as inline data for multimodal input
+  if (assets?.images && assets.images.length > 0) {
+    for (const img of assets.images) {
+      const base64Data = img.base64.split(',')[1]; // Remove data:image/...;base64, prefix
+      const mimeType = img.base64.match(/data:(image\/\w+);base64,/)?.[1] || 'image/png';
+      
+      parts.push({
+        inlineData: {
+          mimeType,
+          data: base64Data
+        }
+      });
+      
+      // Add context about the image
+      const imageContext = img.type === 'logo' ? 'the brand logo' : 'a design asset';
+      const description = img.description ? `: ${img.description}` : '';
+      parts.push({
+        text: `The above image is ${imageContext}${description}. Incorporate this ${img.type} into the reference image design.`
+      });
+      
+      console.log(`✅ Added ${img.type} (${img.name}) to multimodal prompt`);
+    }
+  }
 
   // Try with Gemini
   try {
@@ -416,7 +459,7 @@ IMPORTANT: Create a complete design with proper background as a mockup reference
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-image-preview",
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      contents: [{ role: "user", parts }], // Use multimodal parts array
       generationConfig: {
         responseMimeType: "image/png", // Prefer PNG for transparency support
         temperature: 0.7,

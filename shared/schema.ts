@@ -109,6 +109,22 @@ export const briefColors = pgTable("brief_colors", {
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
+export const briefAssets = pgTable("brief_assets", {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    briefId: uuid("brief_id").notNull().references(() => briefs.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    assetType: text("asset_type").notNull(),
+    name: text("name").notNull(),
+    url: text("url").notNull(),
+    description: text("description"),
+    imagePath: text("image_path").notNull(),
+    fileName: text("file_name").notNull(),
+    fileSize: integer("file_size"),
+    mimeType: text("mime_type").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
 export const insertBriefSchema = createInsertSchema(briefs).pick({
   projectName: true,
   targetAudience: true,
@@ -154,6 +170,19 @@ export const insertBriefColorSchema = createInsertSchema(briefColors).pick({
   colorValue: true,
 });
 
+export const insertBriefAssetSchema = createInsertSchema(briefAssets).pick({
+  briefId: true,
+  userId: true,
+  assetType: true,
+  name: true,
+  url: true,
+  description: true,
+  imagePath: true,
+  fileName: true,
+  fileSize: true,
+  mimeType: true,
+});
+
 export type InsertBrief = z.infer<typeof insertBriefSchema>;
 export type InsertConcept = z.infer<typeof insertConceptSchema>;
 export type InsertSelectedConcept = z.infer<typeof insertSelectedConceptSchema>;
@@ -161,6 +190,7 @@ export type InsertElementSpecification = z.infer<typeof insertElementSpecificati
 export type InsertReferenceImage = z.infer<typeof insertReferenceImageSchema>;
 export type InsertElementImage = z.infer<typeof insertElementImageSchema>;
 export type InsertBriefColor = z.infer<typeof insertBriefColorSchema>;
+export type InsertBriefAsset = z.infer<typeof insertBriefAssetSchema>;
 
 export type Brief = typeof briefs.$inferSelect & { concepts?: Concept[] };
 export type Concept = typeof concepts.$inferSelect;
@@ -169,6 +199,7 @@ export type ElementSpecification = typeof elementSpecifications.$inferSelect;
 export type ReferenceImage = typeof referenceImages.$inferSelect;
 export type ElementImage = typeof elementImages.$inferSelect;
 export type BriefColor = typeof briefColors.$inferSelect;
+export type BriefAsset = typeof briefAssets.$inferSelect;
 
 export const elementDataSchema = z.object({
   id: z.string().uuid(),

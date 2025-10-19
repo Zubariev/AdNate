@@ -136,7 +136,7 @@ export default function Home() {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { getColorAssets } = useAssetLibrary();
+  const { getColorAssets, clearAssets, assets } = useAssetLibrary();
   const [selectedBriefId, setSelectedBriefId] = useState<string | null>(null);
   const [generatedConcepts, setGeneratedConcepts] = useState<Concept[]>([]);
   const [selectedConceptIndex, setSelectedConceptIndex] = useState<number | null>(null);
@@ -219,16 +219,28 @@ export default function Home() {
         colorValue: asset.url
       }));
       
-      // Include colors in the request
+      // Prepare asset files for upload (logos and images only)
+      const assetFiles = assets
+        .filter(a => a.type === 'logo' || a.type === 'image')
+        .map(asset => ({
+          type: asset.type,
+          name: asset.name,
+          url: asset.url, // base64 data URL
+          description: asset.description,
+        }));
+      
+      // Include colors and assets in the request
       const response = await apiClient.post<Brief>("/briefs", {
         ...formData,
-        colors
+        colors,
+        assets: assetFiles
       });
       if (response.error) throw new Error(response.error);
       return response.data as Brief;
     },
     onSuccess: (data: Brief) => {
       queryClient.invalidateQueries({ queryKey: ['briefs'] });
+      clearAssets(); // Clear asset library for next brief (single-use per brief)
       setSelectedBriefId(data.id);
       // Navigate to loading page for enhancement and concept generation
       navigate(`/brief/loading?briefId=${data.id}&type=concepts`);
