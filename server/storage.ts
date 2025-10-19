@@ -1,6 +1,6 @@
 // Storage layer with proper typing
 import { db, supabase } from './routes'; // Import db and supabase instances
-import { Brief, briefs, Concept, concepts, InsertBrief, InsertConcept, InsertSelectedConcept, selectedConcepts, SelectedConcept, ElementSpecification, elementSpecifications, ReferenceImage, referenceImages, ElementSpecificationData, InsertReferenceImage, ElementImage, elementImages, InsertElementImage } from "@shared/schema";
+import { Brief, briefs, Concept, concepts, InsertBrief, InsertConcept, InsertSelectedConcept, selectedConcepts, SelectedConcept, ElementSpecification, elementSpecifications, ReferenceImage, referenceImages, ElementSpecificationData, InsertReferenceImage, ElementImage, elementImages, InsertElementImage, BriefColor, briefColors, InsertBriefColor } from "@shared/schema";
 import { eq, and } from 'drizzle-orm';
 import { desc } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid'; // Import uuid
@@ -29,6 +29,8 @@ export interface IStorage {
   createReferenceImageRecord(data: InsertReferenceImage): Promise<ReferenceImage>;
   findLatestSpecification(briefId: string, conceptId: string): Promise<ElementSpecification | null>;
   uploadAssetImage(briefId: string, file: Buffer, fileName: string, mimeType: string, assetType: 'logo' | 'asset'): Promise<string>;
+  saveBriefColors(briefId: string, userId: string, colors: Array<{ name: string; colorValue: string }>): Promise<BriefColor[]>;
+  getBriefColors(briefId: string): Promise<BriefColor[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -487,6 +489,48 @@ export class DatabaseStorage implements IStorage {
         .limit(1);
     return result[0] || null;
   }
+
+  async saveBriefColors(briefId: string, userId: string, colors: Array<{ name: string; colorValue: string }>): Promise<BriefColor[]> {
+    if (!db) {
+      console.warn('Drizzle DB not initialized, skipping color save.');
+      return [];
+    }
+
+    try {
+      const colorRecords: InsertBriefColor[] = colors.map(color => ({
+        briefId,
+        userId,
+        name: color.name,
+        colorValue: color.colorValue
+      }));
+
+      if (colorRecords.length === 0) {
+        return [];
+      }
+
+      const savedColors = await db.insert(briefColors).values(colorRecords).returning();
+      console.log(`Saved ${savedColors.length} colors for brief ${briefId}`);
+      return savedColors;
+    } catch (error) {
+      console.error('Error saving brief colors:', error);
+      throw error;
+    }
+  }
+
+  async getBriefColors(briefId: string): Promise<BriefColor[]> {
+    if (!db) {
+      console.warn('Drizzle DB not initialized, returning empty colors array.');
+      return [];
+    }
+
+    try {
+      const colors = await db.select().from(briefColors).where(eq(briefColors.briefId, briefId));
+      return colors;
+    } catch (error) {
+      console.error('Error fetching brief colors:', error);
+      return [];
+    }
+  }
 }
 
 class InMemoryStorage implements IStorage {
@@ -716,6 +760,24 @@ class InMemoryStorage implements IStorage {
   async convertImageToBase64(imageUrl: string, compress: boolean = false): Promise<string> {
     console.log(`In-memory storage: Converting image to base64 for url ${imageUrl}, compress: ${compress}`);
     return compress ? "mock-base64-string" : "data:image/png;base64,mock-base64-string";
+  }
+
+  async saveBriefColors(briefId: string, userId: string, colors: Array<{ name: string; colorValue: string }>): Promise<BriefColor[]> {
+    console.log(`In-memory storage: Saving ${colors.length} colors for brief ${briefId}`);
+    return colors.map((color, index) => ({
+      id: uuidv4(),
+      briefId,
+      userId,
+      name: color.name,
+      colorValue: color.colorValue,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }));
+  }
+
+  async getBriefColors(briefId: string): Promise<BriefColor[]> {
+    console.log(`In-memory storage: Getting colors for brief ${briefId}`);
+    return [];
   }
 }
 

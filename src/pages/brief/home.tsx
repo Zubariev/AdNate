@@ -6,6 +6,7 @@ import { Clipboard, Loader2, Share } from "lucide-react";
 import { useToast } from "../../hooks/use-toast.js";
 import { useAuth } from "../../components/auth/AuthProvider.js";
 import { AssetLibrary } from "../../components/ui/asset-library.js";
+import { useAssetLibrary } from "../../contexts/AssetLibraryContext.js";
 import { apiClient } from "../../lib/apiClient.js";
 import { useNavigate } from "react-router-dom";
 import {
@@ -135,6 +136,7 @@ export default function Home() {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { getColorAssets } = useAssetLibrary();
   const [selectedBriefId, setSelectedBriefId] = useState<string | null>(null);
   const [generatedConcepts, setGeneratedConcepts] = useState<Concept[]>([]);
   const [selectedConceptIndex, setSelectedConceptIndex] = useState<number | null>(null);
@@ -211,7 +213,17 @@ export default function Home() {
   
   const createBriefMutation = useMutation({
     mutationFn: async (formData: z.infer<typeof briefFormSchema>) => {
-      const response = await apiClient.post<Brief>("/briefs", formData);
+      // Get color assets from the asset library
+      const colors = getColorAssets().map(asset => ({
+        name: asset.name,
+        colorValue: asset.url
+      }));
+      
+      // Include colors in the request
+      const response = await apiClient.post<Brief>("/briefs", {
+        ...formData,
+        colors
+      });
       if (response.error) throw new Error(response.error);
       return response.data as Brief;
     },

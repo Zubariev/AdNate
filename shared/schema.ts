@@ -99,6 +99,16 @@ export const elementImages = pgTable("element_images", {
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
+export const briefColors = pgTable("brief_colors", {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    briefId: uuid("brief_id").notNull().references(() => briefs.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    colorValue: text("color_value").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
 export const insertBriefSchema = createInsertSchema(briefs).pick({
   projectName: true,
   targetAudience: true,
@@ -137,12 +147,20 @@ export const insertReferenceImageSchema = createInsertSchema(referenceImages);
 
 export const insertElementImageSchema = createInsertSchema(elementImages);
 
+export const insertBriefColorSchema = createInsertSchema(briefColors).pick({
+  briefId: true,
+  userId: true,
+  name: true,
+  colorValue: true,
+});
+
 export type InsertBrief = z.infer<typeof insertBriefSchema>;
 export type InsertConcept = z.infer<typeof insertConceptSchema>;
 export type InsertSelectedConcept = z.infer<typeof insertSelectedConceptSchema>;
 export type InsertElementSpecification = z.infer<typeof insertElementSpecificationSchema>;
 export type InsertReferenceImage = z.infer<typeof insertReferenceImageSchema>;
 export type InsertElementImage = z.infer<typeof insertElementImageSchema>;
+export type InsertBriefColor = z.infer<typeof insertBriefColorSchema>;
 
 export type Brief = typeof briefs.$inferSelect & { concepts?: Concept[] };
 export type Concept = typeof concepts.$inferSelect;
@@ -150,6 +168,7 @@ export type SelectedConcept = typeof selectedConcepts.$inferSelect;
 export type ElementSpecification = typeof elementSpecifications.$inferSelect;
 export type ReferenceImage = typeof referenceImages.$inferSelect;
 export type ElementImage = typeof elementImages.$inferSelect;
+export type BriefColor = typeof briefColors.$inferSelect;
 
 export const elementDataSchema = z.object({
   id: z.string().uuid(),

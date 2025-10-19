@@ -28,7 +28,10 @@ router.post('/', protect, async (req, res) => {
   try {
     console.log('Request body for initial brief creation:', req.body);
     
-    const validatedData = briefFormSchema.parse(req.body);
+    // Extract colors from request body
+    const { colors, ...briefData } = req.body;
+    
+    const validatedData = briefFormSchema.parse(briefData);
     console.log('Validation passed, data:', validatedData);
 
     if (!req.user || !req.user.id) {
@@ -53,6 +56,12 @@ router.post('/', protect, async (req, res) => {
     };
     
     const newBrief = await storage.createBrief(briefToInsert);
+
+    // Save colors if provided
+    if (colors && Array.isArray(colors) && colors.length > 0) {
+      console.log('Saving colors for brief:', newBrief.id);
+      await storage.saveBriefColors(newBrief.id, req.user.id, colors);
+    }
 
     console.log('Created initial brief:', newBrief);
     res.status(201).json(newBrief);
