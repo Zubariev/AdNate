@@ -3,8 +3,8 @@ CREATE TABLE IF NOT EXISTS brief_colors (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     brief_id uuid NOT NULL REFERENCES briefs(id) ON DELETE CASCADE,
     user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    name text NOT NULL,
-    color_value text NOT NULL, -- Stores hex or rgb value
+    name text NOT NULL DEFAULT 'Name not set',
+    color_value text NOT NULL DEFAULT 'Color not set', -- Stores hex or rgb value
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
