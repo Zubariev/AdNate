@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS brief_assets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   brief_id UUID NOT NULL REFERENCES briefs(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   asset_type TEXT NOT NULL CHECK (asset_type IN ('logo', 'image')),
   name TEXT NOT NULL,
   url TEXT NOT NULL,
