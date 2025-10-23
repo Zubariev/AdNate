@@ -17,6 +17,7 @@ declare module "@google/genai" {
 import { storage } from '../storage';
 import { supabase } from "../db";
 import Replicate from "replicate";
+import { parseDimensions, findClosestAspectRatio, calculateAspectRatio } from './aspectRatioUtils';
 
 // Helper function to generate UUID for element IDs
 function generateUUID(): string {
@@ -401,8 +402,15 @@ export async function generateReferenceImage(
   assets?: {
     images?: Array<{ type: string; base64: string; name: string; description?: string }>;
     colors?: Array<{ name: string; value: string }>;
-  }
+  },
+  bannerSize?: string
 ): Promise<ReferenceImage> {
+  // Parse banner size and calculate aspect ratio
+  const dimensions = bannerSize ? parseDimensions(bannerSize) : null;
+  const aspectRatio = dimensions 
+    ? findClosestAspectRatio(calculateAspectRatio(dimensions.width, dimensions.height)) 
+    : "16:9";
+  
   // Build prompt - reference image should be a complete design WITH background
   let prompt = `Create one professional advertising image for:
 Campaign: ${enhancedBriefData.project_name}
@@ -414,6 +422,11 @@ Description: ${concept.description}
 Elements: ${formatObjectForPrompt(concept.elements)}
 Additional Context: ${formatObjectForPrompt(concept.midjourneyPrompts)}
 Rationale: ${formatObjectForPrompt(concept.rationale)}`;
+
+  // Add dimensions information if available
+  if (dimensions) {
+    prompt += `\nImage Dimensions: ${dimensions.width}x${dimensions.height} (${aspectRatio} aspect ratio)`;
+  }
 
   // Add colors to prompt if provided
   if (assets?.colors && assets.colors.length > 0) {
@@ -487,7 +500,11 @@ Rationale: ${formatObjectForPrompt(concept.rationale)}`;
           userId: userId,
           promptUsed: prompt,
           imageBase64: referenceImage,
-          imageData: { source: 'gemini' }
+          imageData: { 
+            source: 'gemini',
+            targetDimensions: dimensions,
+            aspectRatio: aspectRatio
+          }
         });
         console.log("✅ Gemini image saved in Supabase bucket and database:", newImageRecord.id);
         return newImageRecord;
@@ -640,11 +657,20 @@ Output STRICTLY as JSON with this structure:
     const cleanedElementSpecificationResponse = elementSpecificationJsonMatch ? elementSpecificationJsonMatch[0] : elementSpecificationResponseText;
     const elementSpecificationJson = JSON.parse(cleanedElementSpecificationResponse) as ElementSpecificationData;
 
+    // Add reference dimensions from the reference image
+    const imageData = referenceImage.imageData as Record<string, unknown> | undefined;
+    const refDimensions = (imageData?.targetDimensions as { width: number; height: number } | undefined) || { width: 1200, height: 630 };
+    const specWithDimensions = {
+      ...elementSpecificationJson,
+      referenceDimensions: refDimensions
+    };
+    console.log(`Storing reference dimensions: ${refDimensions.width}x${refDimensions.height}`);
+
     // Step 5: Store the specifications in the database    
     const elementSpec = await storage.createElementSpecification(
       briefId,
       conceptId,
-      elementSpecificationJson,
+      specWithDimensions,
       elementSpecificationPrompt,
       referenceImage.id,
       "gemini-2.5-flash"
@@ -654,7 +680,7 @@ Output STRICTLY as JSON with this structure:
     return {
       success: true,
       elementSpecification: elementSpec,
-      specifications: elementSpecificationJson,
+      specifications: specWithDimensions,
       metadata: {
         selectedConcept: concept,
         referenceImage: referenceImage,
@@ -733,6 +759,14 @@ export async function processBriefImages(briefId: string, userId: string): Promi
         .update({ image_generation_status: 'processing' })
         .eq('id', briefId);
     }
+
+    // Fetch the brief to get banner size for aspect ratio
+    const brief = await storage.getBrief(briefId);
+    const dimensions = brief?.bannerSizes ? parseDimensions(brief.bannerSizes) : null;
+    const aspectRatio = dimensions 
+      ? findClosestAspectRatio(calculateAspectRatio(dimensions.width, dimensions.height)) 
+      : "16:9";
+    console.log(`Using aspect ratio: ${aspectRatio} for brief ${briefId}`);
 
     const specRecords = await getElementSpecifications(briefId);
 
@@ -946,7 +980,8 @@ export async function processBriefImages(briefId: string, userId: string): Promi
           userId, 
           briefId, 
           record.conceptId,
-          record.referenceImageId || undefined // Pass the reference image ID from the element specification
+          record.referenceImageId || undefined, // Pass the reference image ID from the element specification
+          aspectRatio // Pass aspect ratio for consistent generation
         );
         console.log(`<-- Finished generating element ${element.id}`);
 
@@ -1026,7 +1061,8 @@ export async function processBriefImages(briefId: string, userId: string): Promi
           userId, 
           briefId, 
           record.conceptId,
-          record.referenceImageId || undefined // Pass the reference image ID for background too
+          record.referenceImageId || undefined, // Pass the reference image ID for background too
+          aspectRatio // Pass aspect ratio for background generation
         );
         if (backgroundImage) {
           console.log(`<-- Finished generation for BACKGROUND. Stored with id: ${backgroundImage.id}`);
@@ -1184,6 +1220,7 @@ export async function generateElementImage(
   briefId: string,
   conceptId: string,
   referenceImageId?: string,
+  aspectRatio?: string
 ): Promise<ElementImage & { imageBase64: string }> {
   // Determine if this is a background element - these shouldn't have transparent backgrounds
   const isBackground = elementId === 'background';
@@ -1193,6 +1230,9 @@ export async function generateElementImage(
   
   if (isBackground) {
     finalPrompt = `${prompt} Create a complete background design with rich details and proper context.`;
+    if (aspectRatio) {
+      finalPrompt += ` Aspect ratio: ${aspectRatio}`;
+    }
   } else {
     finalPrompt = `${prompt} Create this element with a completely transparent background, showing ONLY the element described with no background.`;
   }

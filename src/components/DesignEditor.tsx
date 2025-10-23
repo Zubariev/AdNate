@@ -13,6 +13,8 @@ import { useToast } from './ui/use-toast';
 import { sanitizeDesignText } from "../lib/sanitization";
 import { validateDesign, validateDesignElement } from "../lib/validations";
 import { apiClient } from '../lib/apiClient';
+import { parseBannerSize, getDefaultCanvasSize } from '../lib/canvasUtils';
+import { scaleElementSpecifications, needsScaling } from '../lib/scalingUtils';
 
 // TypeScript interfaces
 interface ElementImage {
@@ -86,7 +88,7 @@ interface DesignEditorProps {
 const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onExport, designId }) => {
   const [elements, setElements] = useState<Element[]>(initialElements);
   const [selectedElement, setSelectedElement] = useState<Element | null>(null);
-  const [canvasSize, setCanvasSize] = useState<CanvasSize>({ width: 1000, height: 1000 }); // Default to square canvas
+  const [canvasSize, setCanvasSize] = useState<CanvasSize>({ width: 1200, height: 630 }); // Default to common social media size
   const [showImageGenerator, setShowImageGenerator] = useState<boolean>(false);
   const [showCustomSizeDialog, setShowCustomSizeDialog] = useState<boolean>(false);
   const [designName, setDesignName] = useState<string>('Untitled Design');
@@ -104,14 +106,29 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onExp
   const loadElementsFromBrief = async (briefId: string) => {
     setIsLoadingElements(true);
     try {
-      // Fetch element images and specifications
-      const [elementImagesResponse, specificationsResponse] = await Promise.all([
+      // Fetch brief, element images, and specifications
+      const [briefResponse, elementImagesResponse, specificationsResponse] = await Promise.all([
+        apiClient.get(`/briefs/${briefId}`),
         apiClient.get<ElementImage[]>(`/briefs/${briefId}/element-images`),
         apiClient.get<ElementSpecification[]>(`/briefs/${briefId}/element-specifications`)
       ]);
 
+      const brief = briefResponse.data;
       const elementImages = elementImagesResponse.data;
       const specifications = specificationsResponse.data;
+
+      // Set canvas size from brief's banner size
+      if (brief?.banner_sizes) {
+        const dimensions = parseBannerSize(brief.banner_sizes);
+        if (dimensions) {
+          console.log(`Setting canvas size from brief: ${dimensions.width}x${dimensions.height}`);
+          setCanvasSize(dimensions);
+        }
+      } else {
+        const defaultSize = getDefaultCanvasSize();
+        console.log(`No banner size in brief, using default: ${defaultSize.width}x${defaultSize.height}`);
+        setCanvasSize(defaultSize);
+      }
 
       console.log('Element Images Response:', elementImages);
       console.log('Specifications Response:', specifications);
@@ -190,8 +207,26 @@ const DesignEditor: React.FC<DesignEditorProps> = ({ initialElements = [], onExp
 
       // Get the latest specification
       const latestSpec = specifications[0];
-      const specElements = latestSpec.specificationData.elements;
-      const backgroundSpec = latestSpec.specificationData.background;
+      
+      // Get reference dimensions and target dimensions for scaling
+      const refDimensions = (latestSpec.specificationData as any).referenceDimensions || getDefaultCanvasSize();
+      const targetDimensions = brief?.banner_sizes ? (parseBannerSize(brief.banner_sizes) || getDefaultCanvasSize()) : getDefaultCanvasSize();
+      
+      // Scale specifications if dimensions differ
+      let scaledSpecData = latestSpec.specificationData;
+      if (needsScaling(refDimensions, targetDimensions)) {
+        console.log('Scaling element specifications...');
+        scaledSpecData = scaleElementSpecifications(
+          latestSpec.specificationData,
+          refDimensions,
+          targetDimensions
+        );
+      } else {
+        console.log('No scaling needed - dimensions match');
+      }
+      
+      const specElements = scaledSpecData.elements;
+      const backgroundSpec = scaledSpecData.background;
 
       console.log('Processing spec elements:', specElements);
       console.log('Processing background spec:', backgroundSpec);

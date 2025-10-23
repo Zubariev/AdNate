@@ -552,7 +552,8 @@ router.post('/:briefId/generate-reference-image', protect, async (req, res) => {
       {
         images: assetImagesBase64,
         colors: briefColors.map(c => ({ name: c.name, value: c.colorValue }))
-      }
+      },
+      brief.bannerSizes // Pass banner size for aspect ratio calculation
     );
     
     res.status(200).json(newReferenceImage);
